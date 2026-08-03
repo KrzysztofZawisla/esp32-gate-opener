@@ -20,82 +20,100 @@ pub fn start_http_server() -> Result<EspHttpServer<'static>> {
     };
     let mut server = EspHttpServer::new(&configuration)?;
 
-    server.fn_handler("/open", Method::Post, |req| -> Result<(), EspIOError> {
-        if !check_auth(&req) {
-            req.into_status_response(401)?;
+    server.fn_handler("/open", Method::Post, |request| -> Result<(), EspIOError> {
+        if !check_auth(&request) {
+            request.into_status_response(401)?;
         } else {
             info!("HTTP /open command received");
             state::submit_command(Command::Open);
-            req.into_ok_response()?;
+            request.into_ok_response()?;
         }
         Ok(())
     })?;
 
-    server.fn_handler("/close", Method::Post, |req| -> Result<(), EspIOError> {
-        if !check_auth(&req) {
-            req.into_status_response(401)?;
-        } else {
-            info!("HTTP /close command received");
-            state::submit_command(Command::Close);
-            req.into_ok_response()?;
-        }
-        Ok(())
-    })?;
-
-    server.fn_handler("/status", Method::Get, |req| -> Result<(), EspIOError> {
-        let body = state::status();
-        let mut resp = req.into_response(200, None, &[("Content-Type", "text/plain")])?;
-        resp.write_all(body.as_bytes())?;
-        Ok(())
-    })?;
-
-    server.fn_handler("/config", Method::Get, |req| -> Result<(), EspIOError> {
-        if !check_auth(&req) {
-            req.into_status_response(401)?;
-        } else {
-            let key = config_storage::http_api_key();
-            let key = if key.is_empty() {
-                String::new()
+    server.fn_handler(
+        "/close",
+        Method::Post,
+        |request| -> Result<(), EspIOError> {
+            if !check_auth(&request) {
+                request.into_status_response(401)?;
             } else {
-                "***".to_string()
-            };
-            let body = ConfigResponse {
-                http_api_key: key,
-                battery_min_pct: config_storage::battery_min_pct(),
-                grace_ms: config_storage::grace_ms(),
-                motion_timeout_s: config_storage::motion_timeout_s(),
-                gate_pulse_ms: config_storage::gate_pulse_ms(),
-                telemetry_interval_s: config_storage::telemetry_interval_s(),
-            };
-            let mut resp = req.into_response(200, None, &[("Content-Type", "application/json")])?;
-            if let Ok(serialized) = serde_json::to_string(&body) {
-                resp.write_all(serialized.as_bytes())?;
+                info!("HTTP /close command received");
+                state::submit_command(Command::Close);
+                request.into_ok_response()?;
             }
-        }
-        Ok(())
-    })?;
+            Ok(())
+        },
+    )?;
 
-    server.fn_handler("/config", Method::Post, |req| -> Result<(), EspIOError> {
-        if !check_auth(&req) {
-            req.into_status_response(401)?;
-        } else {
-            let result = handle_config_update(&req);
-            if let Err(error) = &result {
-                log::warn!("Failed to update config: {error}");
+    server.fn_handler(
+        "/status",
+        Method::Get,
+        |request| -> Result<(), EspIOError> {
+            let body = state::status();
+            let mut response =
+                request.into_response(200, None, &[("Content-Type", "text/plain")])?;
+            response.write_all(body.as_bytes())?;
+            Ok(())
+        },
+    )?;
+
+    server.fn_handler(
+        "/config",
+        Method::Get,
+        |request| -> Result<(), EspIOError> {
+            if !check_auth(&request) {
+                request.into_status_response(401)?;
+            } else {
+                let stored_key = config_storage::http_api_key();
+                let displayed_key = if stored_key.is_empty() {
+                    String::new()
+                } else {
+                    "***".to_string()
+                };
+                let body = ConfigResponse {
+                    http_api_key: displayed_key,
+                    battery_min_pct: config_storage::battery_min_pct(),
+                    grace_ms: config_storage::grace_ms(),
+                    motion_timeout_s: config_storage::motion_timeout_s(),
+                    gate_pulse_ms: config_storage::gate_pulse_ms(),
+                    telemetry_interval_s: config_storage::telemetry_interval_s(),
+                };
+                let mut response =
+                    request.into_response(200, None, &[("Content-Type", "application/json")])?;
+                if let Ok(serialized) = serde_json::to_string(&body) {
+                    response.write_all(serialized.as_bytes())?;
+                }
             }
-            let _ = match result {
-                Ok(()) => req.into_ok_response()?,
-                Err(_) => req.into_status_response(500)?,
-            };
-        }
-        Ok(())
-    })?;
+            Ok(())
+        },
+    )?;
 
-    server.fn_handler("/ota", Method::Post, |req| -> Result<(), EspIOError> {
-        if !check_auth(&req) {
-            return req.into_status_response(401).map(|_| ());
+    server.fn_handler(
+        "/config",
+        Method::Post,
+        |request| -> Result<(), EspIOError> {
+            if !check_auth(&request) {
+                request.into_status_response(401)?;
+            } else {
+                let result = handle_config_update(&request);
+                if let Err(error) = &result {
+                    log::warn!("Failed to update config: {error}");
+                }
+                let _ = match result {
+                    Ok(()) => request.into_ok_response()?,
+                    Err(_) => request.into_status_response(500)?,
+                };
+            }
+            Ok(())
+        },
+    )?;
+
+    server.fn_handler("/ota", Method::Post, |request| -> Result<(), EspIOError> {
+        if !check_auth(&request) {
+            return request.into_status_response(401).map(|_| ());
         }
-        let mut request = req;
+        let mut request = request;
         let result = ota::flash_ota(&mut |output: &mut [u8]| request.read(output));
         match result {
             Ok(()) => {}

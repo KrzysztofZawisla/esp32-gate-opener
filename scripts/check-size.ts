@@ -17,7 +17,7 @@ type Readable = {
   u64: (offset: number) => bigint;
 };
 
-const reader = (data: Uint8Array, littleEndian: boolean): Readable => {
+const makeReader = (data: Uint8Array, littleEndian: boolean): Readable => {
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
   return {
     u16: (offset) => view.getUint16(offset, littleEndian),
@@ -29,32 +29,49 @@ const reader = (data: Uint8Array, littleEndian: boolean): Readable => {
 const sectionSizes = (data: Uint8Array): Map<string, number> => {
   const elfClass = data[4]; // 1 = 32-bit, 2 = 64-bit
   const littleEndian = data[5] === 1;
-  const r = reader(data, littleEndian);
+  const byteReader = makeReader(data, littleEndian);
   const is64 = elfClass === 2;
 
-  const shoff = is64 ? Number(r.u64(40)) : r.u32(32);
-  const shentsize = r.u16(46);
-  const shnum = r.u16(48);
-  const shstrndx = r.u16(50);
+  const sectionHeaderOffset = is64
+    ? Number(byteReader.u64(40))
+    : byteReader.u32(32);
+  const sectionHeaderEntrySize = byteReader.u16(46);
+  const sectionHeaderCount = byteReader.u16(48);
+  const sectionHeaderStringTableIndex = byteReader.u16(50);
 
-  const shstrTableOffset = is64
-    ? Number(r.u64(shoff + shstrndx * shentsize + 24))
-    : r.u32(shoff + shstrndx * shentsize + 16);
+  const sectionHeaderStringTableOffset = is64
+    ? Number(
+      byteReader.u64(
+        sectionHeaderOffset +
+          sectionHeaderStringTableIndex * sectionHeaderEntrySize +
+          24,
+      ),
+    )
+    : byteReader.u32(
+      sectionHeaderOffset +
+        sectionHeaderStringTableIndex * sectionHeaderEntrySize +
+        16,
+    );
 
   const decoder = new TextDecoder();
   const sectionName = (nameOffset: number): string => {
     let end = nameOffset;
-    while (data[shstrTableOffset + end] !== 0) end += 1;
+    while (data[sectionHeaderStringTableOffset + end] !== 0) end += 1;
     return decoder.decode(
-      data.subarray(shstrTableOffset + nameOffset, shstrTableOffset + end),
+      data.subarray(
+        sectionHeaderStringTableOffset + nameOffset,
+        sectionHeaderStringTableOffset + end,
+      ),
     );
   };
 
   const sizes = new Map<string, number>();
-  for (let index = 0; index < shnum; index += 1) {
-    const base = shoff + index * shentsize;
-    const nameOffset = r.u32(base);
-    const size = is64 ? Number(r.u64(base + 32)) : r.u32(base + 20);
+  for (let index = 0; index < sectionHeaderCount; index += 1) {
+    const base = sectionHeaderOffset + index * sectionHeaderEntrySize;
+    const nameOffset = byteReader.u32(base);
+    const size = is64
+      ? Number(byteReader.u64(base + 32))
+      : byteReader.u32(base + 20);
     const name = sectionName(nameOffset);
     if ((FLASH_SECTIONS as readonly string[]).includes(name)) {
       sizes.set(name, size);
@@ -82,7 +99,7 @@ const main = (): void => {
 
   const sizes = sectionSizes(data);
   const total = FLASH_SECTIONS.reduce(
-    (acc, section) => acc + (sizes.get(section) ?? 0),
+    (accumulator, section) => accumulator + (sizes.get(section) ?? 0),
     0,
   );
   const parts = FLASH_SECTIONS.map(

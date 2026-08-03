@@ -1,10 +1,10 @@
-pub fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
-    if a.len() != b.len() {
+pub fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
+    if left.len() != right.len() {
         return false;
     }
-    let mut diff = 0u8;
-    for (x, y) in a.iter().zip(b.iter()) {
-        diff |= x ^ y;
+    let mut difference = 0u8;
+    for (left_byte, right_byte) in left.iter().zip(right.iter()) {
+        difference |= left_byte ^ right_byte;
     }
-    diff == 0
+    difference == 0
 }

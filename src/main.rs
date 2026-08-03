@@ -46,8 +46,8 @@ fn main() -> Result<()> {
 
     let peripherals = Peripherals::take()?;
     let sys_loop = EspSystemEventLoop::take()?;
-    let nvs = EspDefaultNvsPartition::take()?;
-    config_storage::init(nvs.clone());
+    let nvs_partition = EspDefaultNvsPartition::take()?;
+    config_storage::init(nvs_partition.clone());
 
     let mut pins = gate::GatePins {
         open_relay: PinDriver::output(AnyOutputPin::from(peripherals.pins.gpio4))?,
@@ -77,7 +77,7 @@ fn main() -> Result<()> {
     refresh_status(&pins.open_sensor, &pins.closed_sensor);
 
     let mut wifi = BlockingWifi::wrap(
-        EspWifi::new(peripherals.modem, sys_loop.clone(), Some(nvs))?,
+        EspWifi::new(peripherals.modem, sys_loop.clone(), Some(nvs_partition))?,
         sys_loop,
     )?;
     wifi.set_configuration(&WifiConfiguration::Client(ClientConfiguration {
