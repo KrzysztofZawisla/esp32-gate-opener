@@ -403,6 +403,9 @@ without a valid `X-Api-Key` header:
 curl -X POST -H "X-Api-Key: <HTTP_API_KEY>" "http://<device-ip>/open"
 ```
 
+> The key is compared in **constant time** (timing-safe), so the comparison reveals
+> no information about the key's prefix.
+
 > `GET /config` is intentionally **not** authenticated and reveals the current
 > `http_api_key` in plain text. Treat the device IP as trusted-network-only, or run it
 > behind a reverse proxy / firewall that blocks unauthenticated `GET /config`.
@@ -473,7 +476,11 @@ updates immediately after each command and periodically via telemetry.
   ```
 - On Windows also Git + a C toolchain (see the
   [esp-idf-template prerequisites](https://github.com/esp-rs/esp-idf-template#prerequisites)).
-  The project is built inside WSL (`/mnt/c/Projekty/esp32-gate-opener`).
+  Building inside WSL avoids native Windows toolchain quirks; the crate is mounted at
+  `/mnt/c/<project>` when the repo lives on a `C:\` drive.
+
+For the **TypeScript tooling** (size gate, typecheck — development/CI only, not the
+firmware build) you also need **Node.js + pnpm** and **Deno**:
 
 ## Building and flashing
 
@@ -567,15 +574,42 @@ logged as a warning.)
 > erases `otadata`, which resets the OTA state back to slot `ota_0`. That is intended
 > for development but means an OTA slot chosen by a previous HTTP update is forgotten.
 
-### Running the unit tests
+### Development checks
 
-The pure logic (status/sensor mapping, battery %, obstacle level) lives in
-`src/pure/` with host-side `#[cfg(test)]` tests (in `src/pure/tests.rs`). Run them
-on a host toolchain:
+The pure logic (sensor/status mapping, battery %, the `Command` / `Status` / `Fault`
+enums, config validation and the timing-safe API-key compare) lives in `src/pure/`
+with host-side `#[cfg(test)]` tests. `src/lib.rs` exposes the host-safe modules so the
+tests run on any machine with the **stable** Rust toolchain (the `esp` toolchain is
+not needed for these):
 
 ```
-cargo test --lib
+cargo test --lib                  # host unit tests
+cargo fmt --check                 # formatting
+cargo clippy --lib -- -D warnings # linting
+cargo audit                       # known-vulnerability scan
 ```
+
+The TypeScript tooling is installed with `pnpm install` and checked against the
+generated Deno type declarations:
+
+```
+pnpm typecheck                               # tsc --noEmit (TypeScript 7)
+deno lint scripts && deno fmt --check scripts  # style checks
+pnpm size                                    # enforce the firmware size budget
+```
+
+> `pnpm install` runs a `postinstall` that regenerates `types/deno.d.ts`
+> (`deno types > types/deno.d.ts`), so do not edit that file by hand.
+
+### Continuous integration
+
+`.github/workflows/ci.yml` runs on every push/PR and gates merges on three jobs:
+
+| Job | What it enforces |
+|---|---|
+| `host-tests` | `cargo fmt --check`, host unit tests, `clippy -D warnings`, `rustsec/audit-check` |
+| `ts-checks` | `pnpm install --frozen-lockfile`, `pnpm typecheck`, `deno lint scripts` + `deno fmt --check scripts` |
+| `esp32-build` | `docker build` (full ESP-IDF cross-build + `clippy -D warnings`), then `deno run scripts/check-size.ts` on the extracted ELF to enforce the size budget |
 
 ---
 
@@ -584,19 +618,30 @@ cargo test --lib
 ```
 esp32-gate-opener/
 ├── src/
-│   ├── main.rs            Boot, WiFi, async task setup
-│   ├── config.rs          Compile-time config (env!) + constants
-│   ├── config_storage/    Runtime config in NVS (overrides defaults)
-│   ├── gate/              Motion sequences, fail-open safety, lamp/relay control
-│   ├── http/              HTTP server, endpoints, `X-Api-Key` auth
-│   ├── ota.rs             OTA flashing over HTTP
-│   ├── homeassistant/     MQTT client, telemetry publishes, HA discovery
-│   ├── state/             Shared atomics (status, command, fault, obstacle, battery)
-│   └── pure/              Pure logic + host-side unit tests
+│   ├── lib.rs            Test harness: exposes the host-safe modules for `cargo test --lib`
+│   ├── main.rs           Boot, WiFi, async task setup
+│   ├── config.rs         Compile-time config (env!) + constants
+│   ├── config_storage/   Runtime config in NVS (overrides defaults)
+│   ├── gate/             Motion sequences, fail-open safety, lamp/relay control
+│   ├── http/             HTTP server, endpoints, `X-Api-Key` auth
+│   ├── ota.rs            OTA flashing over HTTP
+│   ├── homeassistant/    MQTT client, telemetry publishes, HA discovery
+│   ├── state/            Shared atomics (status, command, fault, obstacle, battery)
+│   └── pure/             Pure logic + host-side tests (Command/Status/Fault, config
+│                         validation, timing-safe compare, HA discovery configs)
 ├── .cargo/config.toml     Build target, runner, compile-time `[env]` config
+├── build.rs               embuild ESP-IDF sysenv (targets `espidf` only)
+├── rust-toolchain.toml    Pins the `esp` toolchain
 ├── partitions.csv         Two-slot OTA partition table
 ├── sdkconfig.defaults     ESP-IDF Kconfig overrides (partition table, rollback)
 ├── espflash.toml          espflash flash settings (partition table)
+├── scripts/check-size.ts  Firmware size gate (parses the ELF, enforces the budget)
+├── types/                 Generated Deno type declarations (`deno.d.ts`, gitignored)
+├── tsconfig.json          TypeScript config (`tsc --noEmit`)
+├── package.json           pnpm scripts: typecheck / size / test / ota:image …
+├── pnpm-lock.yaml
+├── Dockerfile             CI build image (esp-idf 5.3.5 + `esp` toolchain)
+├── .github/workflows/     GitHub Actions CI (host tests, TS checks, ESP32 build)
 └── Cargo.toml             Crate + release profile (LTO, opt-size, panic=abort)
 ```
 
@@ -606,7 +651,9 @@ Each module folder (`config_storage/`, `gate/`, `http/`, `homeassistant/`, `stat
 
 The release profile is tuned for a production image: `lto = "fat"`,
 `codegen-units = 1`, `opt-level = "s"` and `panic = "abort"` — the resulting app
-image is roughly 1.2 MB, well inside the 1700 K slot.
+image is roughly **1 MB**, well inside the 1700 K slot. CI enforces a **1.4 MB**
+budget via `scripts/check-size.ts` (parses the `.flash.text` + `.flash.rodata`
+sections of the built ELF), so an unexpected firmware bloat fails the build.
 
 ---
 
