@@ -614,6 +614,13 @@ pnpm secrets                                 # scan git history for leaked crede
 | `esp32-build` | `docker build` (full ESP-IDF cross-build + `clippy -D warnings`), then `deno run scripts/check-size.ts` on the extracted ELF to enforce the size budget |
 | `secrets-scan` | `gitleaks-action` — scans every commit (full history) for leaked credentials/keys; config in `.gitleaks.toml` |
 
+**Dependabot** (`.github/dependabot.yml`) opens weekly update PRs for Cargo
+(`cargo`), `package.json`/`pnpm-lock.yaml` (`npm`) and the GitHub Actions
+themselves (`github-actions`). The `dependabot-auto-merge` workflow approves and
+auto-merges them as soon as the required CI checks above pass — for that to work,
+enable **Allow auto-merge** in the repo settings and add a branch protection rule
+that requires the CI status checks on the default branch.
+
 ---
 
 ## Repository layout
