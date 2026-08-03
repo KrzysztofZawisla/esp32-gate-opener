@@ -1,0 +1,42 @@
+[build]
+target = "xtensa-esp32-espidf"
+
+[target.'cfg(target_os = "espidf")']
+linker = "ldproxy"
+runner = "espflash flash --erase-parts otadata --monitor"
+rustflags = ["--cfg", "espidf_time64"]
+
+[unstable]
+build-std = ["std", "panic_abort"]
+
+[env]
+# Copy the custom partition table into the esp-idf-sys C project (its build
+# dir resolves CONFIG_PARTITION_TABLE_CUSTOM_FILENAME relative to PROJECT_DIR).
+# `relative = true` with an empty value expands to this config file's directory.
+ESP_IDF_GLOB_BASE = { value = "", relative = true }
+ESP_IDF_GLOB_PARTITION_CSV = "partitions.csv"
+# Which ESP-IDF release esp-idf-sys downloads into .embuild/ (managed origin).
+# Latest 5.3.x patch release (v5.3.0 does not exist; 5.3 line is v5.3.1..v5.3.5).
+ESP_IDF_VERSION = "v5.3.5"
+SSID = "YOUR_WIFI_SSID"
+PASSWORD = "YOUR_WIFI_PASSWORD"
+MQTT_BROKER = "mqtt://192.168.1.100:1883"
+MQTT_USERNAME = ""
+MQTT_PASSWORD = ""
+MQTT_COMMAND_TOPIC = "gate/command"
+MQTT_STATUS_TOPIC = "gate/status"
+MQTT_AVAILABILITY_TOPIC = "gate/availability"
+MQTT_BATTERY_TOPIC = "gate/battery"
+MQTT_BATTERY_VOLTAGE_TOPIC = "gate/battery_voltage"
+MQTT_OBSTACLE_TOPIC = "gate/obstacle"
+MQTT_FAULT_TOPIC = "gate/fault"
+OBSTACLE_ACTIVE_LEVEL = "low"
+BATTERY_DIVIDER_RATIO = "6.0"
+BATTERY_FULL_MV = "12600"
+BATTERY_EMPTY_MV = "11500"
+BATTERY_MIN_PCT = "20"
+MOTION_TIMEOUT_S = "45"
+TELEMETRY_INTERVAL_S = "60"
+HTTP_API_KEY = ""
+GRACE_MS = "300"
+ESP_LOG = "info"
