@@ -19,6 +19,10 @@ pub fn connect_mqtt() {
         network_timeout: core::time::Duration::from_secs(5),
         username,
         password,
+        // Load the trusted-CA bundle from flash so `mqtts://` brokers work out
+        // of the box (Home Assistant's standard 8883 port). Without this the
+        // TLS session has no anchor to validate the broker certificate.
+        crt_bundle_attach: Some(esp_idf_svc::sys::esp_crt_bundle_attach),
         lwt: Some(LwtConfiguration {
             topic: AVAILABILITY_TOPIC,
             payload: b"offline",

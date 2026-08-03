@@ -11,9 +11,21 @@ RUN curl -sSf https://raw.githubusercontent.com/esp-rs/espup/main/espup/install.
     rustup default esp
 RUN cargo install ldproxy --locked
 WORKDIR /app
+
+# Cache layer: compile all dependencies once against a stub crate. This RUN only
+# re-executes when the manifest/toolchain layers change, so CI rebuilds reuse
+# the compiled dependencies from the GHA docker layer cache instead of
+# recompiling the whole tree on every push.
+COPY .cargo/. ./.cargo/
+COPY Cargo.toml Cargo.lock build.rs rust-toolchain.toml sdkconfig.defaults partitions.csv ./
+RUN mkdir -p src && : > src/lib.rs
+RUN bash -c "source \$IDF_PATH/export.sh && cargo build --release --lib"
+
+# The real sources (lib.rs above is overwritten here); only this crate's own
+# code recompiles from this layer on. espup bundles clippy; it is already
+# present in the toolchain. The firmware size budget is enforced separately in
+# CI via scripts/check-size.ts.
 COPY . .
-# espup bundles clippy; it is already present in the toolchain. The firmware
-# size budget is enforced separately in CI via scripts/check-size.ts.
 RUN bash -c "source \$IDF_PATH/export.sh && cargo build --release && cargo clippy --release -- -D warnings"
 FROM scratch AS release
 COPY --from=build /app/target/xtensa-esp32-espidf/release/esp32-gate-opener /esp32-gate-opener

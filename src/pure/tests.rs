@@ -110,6 +110,49 @@ fn constant_time_eq_compares_in_constant_time_style() {
 }
 
 #[test]
+fn parse_config_query_extracts_key_value_pairs() {
+    let pairs = parse_config_query("battery_min_pct=100&grace_ms=2000").unwrap();
+    assert_eq!(
+        pairs,
+        vec![
+            ("battery_min_pct".to_string(), "100".to_string()),
+            ("grace_ms".to_string(), "2000".to_string()),
+        ]
+    );
+}
+
+#[test]
+fn parse_config_query_handles_empty_and_reset_flag() {
+    assert_eq!(
+        parse_config_query("").unwrap(),
+        Vec::<(String, String)>::new()
+    );
+
+    let reset_on = parse_config_query("reset=1").unwrap();
+    assert!(reset_on.iter().any(|(k, v)| k == "reset" && v == "1"));
+
+    let reset_off = parse_config_query("battery_min_pct=10").unwrap();
+    assert!(!reset_off.iter().any(|(k, v)| k == "reset" && v == "1"));
+}
+
+#[test]
+fn parse_config_query_preserves_duplicate_keys_in_order() {
+    let pairs = parse_config_query("a=1&a=2").unwrap();
+    assert_eq!(pairs.len(), 2);
+    assert_eq!(pairs[0], ("a".to_string(), "1".to_string()));
+    assert_eq!(pairs[1], ("a".to_string(), "2".to_string()));
+}
+
+#[test]
+fn parse_config_query_decodes_percent_encoding_leniently() {
+    let pairs = parse_config_query("name=comt%C3%A9").unwrap();
+    assert_eq!(pairs, vec![("name".to_string(), "comté".to_string())]);
+    assert!(parse_config_query("a=%zz").is_ok());
+    assert!(parse_config_query("a=%C3%28").is_ok());
+    assert_eq!(parse_config_query("a").unwrap().len(), 1);
+}
+
+#[test]
 fn discovery_configs_are_valid_homeassistant_payloads() {
     let topics = DiscoveryTopics {
         command: "cmd/topic",

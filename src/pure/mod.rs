@@ -10,6 +10,7 @@ mod discovery;
 mod fault;
 mod median;
 mod obstacle_blocked;
+mod query;
 mod status;
 
 pub use battery_divider_ratio::battery_divider_ratio;
@@ -27,6 +28,7 @@ pub use discovery::{discovery_configs, DiscoveryTopics};
 pub use fault::Fault;
 pub use median::median;
 pub use obstacle_blocked::obstacle_blocked;
+pub use query::parse_config_query;
 pub use status::{sensor_status, Status};
 
 #[cfg(test)]

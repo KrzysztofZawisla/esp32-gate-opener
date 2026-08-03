@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 resolver = "2"
 rust-version = "1.82"
+license = "ISC"
 
 [[bin]]
 name = "esp32-gate-opener"

@@ -1,5 +1,6 @@
 use embedded_svc::io::Write;
 use esp_idf_hal::io::EspIOError;
+use esp_idf_hal::reset;
 use esp_idf_svc::http::server::{Configuration as HttpConfig, EspHttpServer};
 use esp_idf_svc::http::Method;
 use log::{error, info};
@@ -104,6 +105,20 @@ pub fn start_http_server() -> Result<EspHttpServer<'static>> {
                     Ok(()) => request.into_ok_response()?,
                     Err(_) => request.into_status_response(500)?,
                 };
+            }
+            Ok(())
+        },
+    )?;
+
+    server.fn_handler(
+        "/reboot",
+        Method::Post,
+        |request| -> Result<(), EspIOError> {
+            if !check_auth(&request) {
+                request.into_status_response(401)?;
+            } else {
+                info!("HTTP /reboot command received, restarting");
+                reset::restart();
             }
             Ok(())
         },

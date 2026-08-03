@@ -1,5 +1,8 @@
 # ESP32 Gate Opener
 
+[![CI](https://github.com/KrzysztofZawisla/esp32-gate-opener/actions/workflows/ci.yml/badge.svg)](https://github.com/KrzysztofZawisla/esp32-gate-opener/actions/workflows/ci.yml)
+[![License: ISC](https://img.shields.io/badge/license-ISC-blue.svg)](https://opensource.org/licenses/ISC)
+
 Solar-powered gate opener for a driveway gate, built on an ESP32 with Rust (ESP-IDF).
 The device runs **24/7** — WiFi, MQTT and HTTP are always on, so commands are executed
 instantly and the gate state is continuously reported to Home Assistant. An MQTT command
@@ -13,6 +16,10 @@ Features:
 - **Runtime config in NVS** with compile-time fallbacks (`GET/POST /config`) — change the
   API key, pulse length, timeouts etc. without reflashing.
 - **MQTT authentication** (username/password) and an optional `X-Api-Key` header on the HTTP endpoints.
+- **TLS-ready MQTT**: the Mozilla root-CA bundle is baked into the firmware, so `mqtts://`
+  brokers (e.g. Home Assistant's 8883 port) work without extra setup.
+- **NTP time sync** on boot (SNTP, 4 pool servers) — logs carry the correct time.
+- **Watchdog**: if the scheduler wedges, the SoC resets itself instead of hanging silently.
 - **Fail-open safety**: the gate is always left open or closed, never stopped mid-travel.
 - **Battery lockout**: below `BATTERY_MIN_PCT` the gate refuses to move (fault reported).
 - **Sensor fault detection**: both reed switches reading "closed" at once → `error` state.
@@ -39,8 +46,10 @@ The WiFi, MQTT and HTTP server run in parallel:
    if the link drops. MQTT auto-reconnects via the broker client.
 2. **MQTT** subscribes to `gate/command`. A retained `open` / `close` message (or a live
    publish, since the device is always awake) is executed immediately. MQTT discovery
-   configs are (re)published on every (re)connect so Home Assistant entities stay valid.
-3. **HTTP** (`POST /open`, `/close`, `/config`, `/ota`; `GET /status`, `/config`) is
+   configs are (re)published on every (re)connect so Home Assistant entities stay
+   valid. A broker URL of `mqtts://` is secured end-to-end via the baked-in CA bundle.
+3. **HTTP** (`POST /open`, `/close`, `/config` (incl. `?reset=1`), `/reboot`, `/ota`;
+   `GET /status`, `/config`) is
    always reachable at the device IP, even if WiFi is still reconnecting.
 4. **Obstacle safety (fail-open)**: if the through-beam photocell reports a blocked
    driveway, the device refuses to start closing; if the beam is broken **during**
@@ -95,7 +104,9 @@ opens the gate instead.
    gate status is read from the sensors.
 4. WiFi connects: up to **6 attempts, 5 s apart**. If it still fails, the firmware
    **continues anyway** — the HTTP server still runs and MQTT keeps trying to connect.
-5. MQTT client starts (with automatic reconnection) and the HTTP server binds port 80.
+5. NTP time sync (SNTP) starts in the background; once the clock syncs, a log line
+   reports the offset.
+6. MQTT client starts (with automatic reconnection) and the HTTP server binds port 80.
 6. The gate and telemetry tasks run forever.
 
 > The battery percentage starts at **100 %** and is only refreshed by the first
@@ -320,7 +331,7 @@ values win over the compile-time defaults.
 |---|---|---|---|
 | `SSID` | Wi-Fi network name | `YOUR_WIFI_SSID` | — |
 | `PASSWORD` | Wi-Fi password (WPA2) | `YOUR_WIFI_PASSWORD` | — |
-| `MQTT_BROKER` | Broker URL (`mqtt://host:port`) | `mqtt://192.168.1.100:1883` | — |
+| `MQTT_BROKER` | Broker URL (`mqtt://host:port` or `mqtts://host:port` for TLS) | `mqtt://192.168.1.100:1883` | — |
 | `MQTT_USERNAME` | MQTT username; empty = no auth | `` | — |
 | `MQTT_PASSWORD` | MQTT password (with `MQTT_USERNAME`) | `` | — |
 | `MQTT_COMMAND_TOPIC` | Topic receiving `open` / `close` | `gate/command` | — |
@@ -339,7 +350,7 @@ values win over the compile-time defaults.
 | `TELEMETRY_INTERVAL_S` | How often the telemetry task publishes state/battery | `60` | ✅ |
 | `GRACE_MS` | Delay after each relay pulse before polling sensors | `300` | ✅ |
 | `GATE_PULSE_MS` | Relay pulse length | `1000` (code constant) | ✅ |
-| `HTTP_API_KEY` | Optional `X-Api-Key` header required by `/open` `/close` `/ota` `/config`; empty = disabled | `` | ✅ |
+| `HTTP_API_KEY` | Optional `X-Api-Key` header required by `/open` `/close` `/ota` `/config` `/reboot`; empty = disabled | `` | ✅ |
 | `ESP_LOG` | Log level | `info` | — |
 
 Code constants in `src/config.rs`: `LISTEN_PORT` (HTTP, 80), `GATE_PULSE_MS` (1000 ms,
@@ -369,8 +380,14 @@ Supported parameters: `http_api_key`, `battery_min_pct`, `grace_ms`, `motion_tim
 `gate_pulse_ms`, `telemetry_interval_s`. An unparseable value is ignored (the previous
 value stays).
 
-**Resetting runtime config**: `POST /config` can set a value back to anything, but
-there is no "reset to default" endpoint. To wipe all NVS settings:
+**Resetting runtime config**: pass the `reset` flag to `POST /config` to drop every
+persisted setting and fall back to the compile-time defaults (no reflash needed):
+
+```
+curl -X POST -H "X-Api-Key: <HTTP_API_KEY>" "http://<device-ip>/config?reset=1"
+```
+
+The old manual way (wipe all NVS settings):
 
 ```
 espflash erase-parts nvs
@@ -392,11 +409,12 @@ immediately; the gate moves asynchronously (check `/status` for the real state).
 | `POST` | `/open` | `X-Api-Key` if set | `OK` (queues open) |
 | `POST` | `/close` | `X-Api-Key` if set | `OK` (queues close) |
 | `GET` | `/status` | — | `open` / `closed` / `opening` / `closing` / `stopped` / `error` |
-| `GET` | `/config` | — | Effective config as JSON (see above) |
-| `POST` | `/config` | `X-Api-Key` if set | `OK` |
+| `GET` | `/config` | `X-Api-Key` if set | Effective config as JSON (see above) |
+| `POST` | `/config` | `X-Api-Key` if set | `OK` (update); `?reset=1` restores defaults |
+| `POST` | `/reboot` | `X-Api-Key` if set | reboots immediately |
 | `POST` | `/ota` | `X-Api-Key` if set | reboots (or `OTA failed`, HTTP 500) |
 
-With `HTTP_API_KEY` set, `/open`, `/close`, `/config` POST and `/ota` return HTTP **401**
+With `HTTP_API_KEY` set, `/open`, `/close`, `/config`, `/reboot` and `/ota` return HTTP **401**
 without a valid `X-Api-Key` header:
 
 ```
@@ -406,9 +424,9 @@ curl -X POST -H "X-Api-Key: <HTTP_API_KEY>" "http://<device-ip>/open"
 > The key is compared in **constant time** (timing-safe), so the comparison reveals
 > no information about the key's prefix.
 
-> `GET /config` is intentionally **not** authenticated and reveals the current
-> `http_api_key` in plain text. Treat the device IP as trusted-network-only, or run it
-> behind a reverse proxy / firewall that blocks unauthenticated `GET /config`.
+> `GET /config` requires the same `X-Api-Key` as the other endpoints and **never**
+> returns the real key — when one is set it is masked as `***`. `GET /status`
+> remains unauthenticated, so anyone on the LAN can read the gate state.
 
 ---
 
@@ -588,6 +606,7 @@ cargo test --lib                  # host unit tests
 cargo fmt --check                 # formatting
 cargo clippy --lib -- -D warnings # linting
 cargo audit                       # known-vulnerability scan
+cargo deny check licenses         # license compliance (permissive only)
 ```
 
 The TypeScript tooling is installed with `pnpm install` and checked against the
@@ -605,13 +624,14 @@ pnpm secrets                                 # scan git history for leaked crede
 
 ### Continuous integration
 
-`.github/workflows/ci.yml` runs on every push/PR and gates merges on three jobs:
+`.github/workflows/ci.yml` runs on every push/PR and gates merges on four jobs:
 
 | Job | What it enforces |
 |---|---|
 | `host-tests` | `cargo fmt --check`, host unit tests, `clippy -D warnings`, `rustsec/audit-check` |
+| `licenses` | `cargo deny check licenses` against `deny.toml` (permissive licenses only) |
 | `ts-checks` | `pnpm install --frozen-lockfile`, `pnpm typecheck`, `deno lint scripts` + `deno fmt --check scripts` |
-| `esp32-build` | `docker build` (full ESP-IDF cross-build + `clippy -D warnings`), then `deno run scripts/check-size.ts` on the extracted ELF to enforce the size budget |
+| `esp32-build` | Buildx/docker build with a GHA **layer cache** (deps compiled once, then cached) — full ESP-IDF cross-build + `clippy -D warnings`, then `deno run scripts/check-size.ts` on the extracted ELF to enforce the size budget |
 | `secrets-scan` | `gitleaks-action` — scans every commit (full history) for leaked credentials/keys; config in `.gitleaks.toml` |
 
 **Dependabot** (`.github/dependabot.yml`) opens weekly update PRs for Cargo
@@ -638,21 +658,24 @@ esp32-gate-opener/
 │   ├── homeassistant/    MQTT client, telemetry publishes, HA discovery
 │   ├── state/            Shared atomics (status, command, fault, obstacle, battery)
 │   └── pure/             Pure logic + host-side tests (Command/Status/Fault, config
-│                         validation, timing-safe compare, HA discovery configs)
+│                         validation, timing-safe compare, HA discovery configs,
+│                         query-string parsing)
 ├── .cargo/config.toml     Build target, runner, compile-time `[env]` config
 ├── build.rs               embuild ESP-IDF sysenv (targets `espidf` only)
 ├── rust-toolchain.toml    Pins the `esp` toolchain
 ├── partitions.csv         Two-slot OTA partition table
-├── sdkconfig.defaults     ESP-IDF Kconfig overrides (partition table, rollback)
+├── sdkconfig.defaults     ESP-IDF Kconfig overrides (partition table, rollback, CA
+│                          bundle for TLS, watchdog, SNTP)
 ├── espflash.toml          espflash flash settings (partition table)
+├── deny.toml              cargo-deny license allowlist (permissive licenses only)
 ├── .gitleaks.toml         Credential-scan config (extends defaults + allowlist)
 ├── scripts/check-size.ts  Firmware size gate (parses the ELF, enforces the budget)
 ├── types/                 Generated Deno type declarations (`deno.d.ts`, gitignored)
 ├── tsconfig.json          TypeScript config (`tsc --noEmit`)
 ├── package.json           pnpm scripts: typecheck / size / test / ota:image …
 ├── pnpm-lock.yaml
-├── Dockerfile             CI build image (esp-idf 5.3.5 + `esp` toolchain)
-├── .github/workflows/     GitHub Actions CI (host tests, TS checks, ESP32 build)
+├── Dockerfile             CI build image (esp-idf 5.3.5 + `esp` toolchain, cached layers)
+├── .github/workflows/     GitHub Actions CI (host tests, TS checks, ESP32 build, licenses)
 └── Cargo.toml             Crate + release profile (LTO, opt-size, panic=abort)
 ```
 
@@ -676,8 +699,9 @@ sections of the built ELF), so an unexpected firmware bloat fails the build.
   keep the gate controller's own safety inputs (photocell inputs) wired to the
   through-beam receiver as well, if the controller supports them.
 - **Authentication**: anyone who can reach the MQTT broker or the HTTP endpoint
-  can operate the gate. Set `MQTT_USERNAME`/`MQTT_PASSWORD` in `.cargo/config.toml`
-  and an `HTTP_API_KEY` (used by `/open`, `/close`, `/ota` and `/config`). Put the
+  can operate the gate (and `POST /reboot` resets the device). Set
+  `MQTT_USERNAME`/`MQTT_PASSWORD` in `.cargo/config.toml` and an `HTTP_API_KEY`
+  (used by `/open`, `/close`, `/ota`, `/config` and `/reboot`). Put the
   device on an isolated IoT VLAN.
 - **Battery lockout**: below `BATTERY_MIN_PCT` the gate refuses all motion commands.
   This preserves the battery for critical loads, but it also means a gate that is
@@ -708,8 +732,8 @@ sections of the built ELF), so an unexpected firmware bloat fails the build.
   does not block an opening motion.
 - **Battery freshness**: the battery % is updated every `TELEMETRY_INTERVAL_S`; the
   lockout and reported percentage use that last sample (starts at 100 % at boot).
-- **`GET /config` is open**: it is unauthenticated and includes the API key; see the
-  HTTP section.
+- **`GET /status` is unauthenticated**: anyone on the LAN can read the gate state
+  (it is intentionally open so dashboards can poll without a key).
 - **MQTT topics are fixed at compile time** and the discovery root is hardcoded to
   `homeassistant/...`. Change them via the `[env]` section if you use a different
   discovery prefix.

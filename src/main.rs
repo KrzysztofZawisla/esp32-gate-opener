@@ -1,4 +1,5 @@
 use core::borrow::Borrow;
+use std::sync::OnceLock;
 
 use anyhow::Result;
 use embassy_futures::join::join;
@@ -14,6 +15,7 @@ use esp_idf_hal::task::block_on;
 use esp_idf_svc::eventloop::EspSystemEventLoop;
 use esp_idf_svc::log::EspLogger;
 use esp_idf_svc::nvs::EspDefaultNvsPartition;
+use esp_idf_svc::sntp::EspSntp;
 use esp_idf_svc::wifi::{BlockingWifi, EspWifi};
 use log::{info, warn};
 
@@ -29,6 +31,10 @@ mod state;
 use config::*;
 use pure::Command;
 use state::{battery_pct, refresh_status, take_command};
+
+// Keep the SNTP client alive for the whole run; dropping it would stop time
+// synchronization (and free the underlying task).
+static SNTP: OnceLock<EspSntp<'static>> = OnceLock::new();
 
 fn main() -> Result<()> {
     esp_idf_svc::sys::link_patches();
@@ -106,6 +112,24 @@ fn main() -> Result<()> {
     }
 
     homeassistant::connect_mqtt();
+
+    // Best-effort time synchronization over the (now connected) network so
+    // logs and any future time-stamped features agree with real time. SNTP
+    // queries the pool in the background until it gets a sync; failures here
+    // are non-fatal because the device keeps working without a clock.
+    match EspSntp::new_with_callback(&Default::default(), |offset| {
+        info!(
+            "Clock synchronized via NTP (offset {} ms)",
+            offset.as_millis()
+        );
+    }) {
+        Ok(sntp) => {
+            let _ = SNTP.set(sntp);
+            info!("SNTP time synchronization enabled");
+        }
+        Err(error) => warn!("Failed to enable SNTP: {error}"),
+    }
+
     let server = http::start_http_server()?;
 
     info!("Running 24/7 — WiFi, MQTT and HTTP are always on");
