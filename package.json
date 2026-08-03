@@ -11,6 +11,7 @@
     "monitor": "espflash monitor",
     "postinstall": "deno types > types/deno.d.ts",
     "size": "deno run --allow-read scripts/check-size.ts",
+    "secrets": "gitleaks detect --source .",
     "typecheck": "tsc --noEmit",
     "test": "cargo test --lib",
     "ota:image": "cargo build --release && espflash save-image --chip esp32 target/xtensa-esp32-espidf/release/esp32-gate-opener gate.bin"

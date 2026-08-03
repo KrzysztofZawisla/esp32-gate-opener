@@ -1,0 +1,17 @@
+# Gitleaks configuration for this repository.
+#
+# Extends the default rule set. The allowlist below documents the build-time
+# placeholder credentials in `.cargo/config.toml` (never real secrets) so a
+# future gitleaks rule does not flag them as leaks.
+#
+# Reference: https://github.com/gitleaks/gitleaks
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Placeholder build credentials in .cargo/config.toml"
+regexes = [
+  "YOUR_WIFI_SSID",
+  "YOUR_WIFI_PASSWORD",
+]

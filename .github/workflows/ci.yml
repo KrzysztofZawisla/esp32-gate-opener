@@ -59,3 +59,14 @@ jobs:
           docker rm gate-bin
       - name: Enforce firmware size budget
         run: deno run --allow-read scripts/check-size.ts
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan for committed credentials
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }} # only required for organization accounts

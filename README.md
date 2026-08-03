@@ -480,7 +480,8 @@ updates immediately after each command and periodically via telemetry.
   `/mnt/c/<project>` when the repo lives on a `C:\` drive.
 
 For the **TypeScript tooling** (size gate, typecheck — development/CI only, not the
-firmware build) you also need **Node.js + pnpm** and **Deno**:
+firmware build) you also need **Node.js + pnpm**, **Deno** and **Gitleaks** (for the
+credential scan, `pnpm secrets`):
 
 ## Building and flashing
 
@@ -596,6 +597,7 @@ generated Deno type declarations:
 pnpm typecheck                               # tsc --noEmit (TypeScript 7)
 deno lint scripts && deno fmt --check scripts  # style checks
 pnpm size                                    # enforce the firmware size budget
+pnpm secrets                                 # scan git history for leaked credentials
 ```
 
 > `pnpm install` runs a `postinstall` that regenerates `types/deno.d.ts`
@@ -610,6 +612,7 @@ pnpm size                                    # enforce the firmware size budget
 | `host-tests` | `cargo fmt --check`, host unit tests, `clippy -D warnings`, `rustsec/audit-check` |
 | `ts-checks` | `pnpm install --frozen-lockfile`, `pnpm typecheck`, `deno lint scripts` + `deno fmt --check scripts` |
 | `esp32-build` | `docker build` (full ESP-IDF cross-build + `clippy -D warnings`), then `deno run scripts/check-size.ts` on the extracted ELF to enforce the size budget |
+| `secrets-scan` | `gitleaks-action` — scans every commit (full history) for leaked credentials/keys; config in `.gitleaks.toml` |
 
 ---
 
@@ -635,6 +638,7 @@ esp32-gate-opener/
 ├── partitions.csv         Two-slot OTA partition table
 ├── sdkconfig.defaults     ESP-IDF Kconfig overrides (partition table, rollback)
 ├── espflash.toml          espflash flash settings (partition table)
+├── .gitleaks.toml         Credential-scan config (extends defaults + allowlist)
 ├── scripts/check-size.ts  Firmware size gate (parses the ELF, enforces the budget)
 ├── types/                 Generated Deno type declarations (`deno.d.ts`, gitignored)
 ├── tsconfig.json          TypeScript config (`tsc --noEmit`)
