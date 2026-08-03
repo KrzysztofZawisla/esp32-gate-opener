@@ -6,7 +6,8 @@ use log::{error, info};
 
 use anyhow::Result;
 
-use crate::config::{CMD_CLOSE, CMD_OPEN, LISTEN_PORT};
+use crate::config::LISTEN_PORT;
+use crate::pure::Command;
 use crate::{config_storage, ota, state};
 
 use super::check_auth;
@@ -24,7 +25,7 @@ pub fn start_http_server() -> Result<EspHttpServer<'static>> {
             req.into_status_response(401)?;
         } else {
             info!("HTTP /open command received");
-            state::submit_command(CMD_OPEN);
+            state::submit_command(Command::Open);
             req.into_ok_response()?;
         }
         Ok(())
@@ -35,7 +36,7 @@ pub fn start_http_server() -> Result<EspHttpServer<'static>> {
             req.into_status_response(401)?;
         } else {
             info!("HTTP /close command received");
-            state::submit_command(CMD_CLOSE);
+            state::submit_command(Command::Close);
             req.into_ok_response()?;
         }
         Ok(())

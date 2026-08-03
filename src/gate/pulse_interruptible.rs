@@ -2,19 +2,20 @@ use anyhow::Result;
 use embassy_time::{Duration as TimeDuration, Instant, Timer};
 use esp_idf_hal::gpio::{AnyOutputPin, Output, PinDriver};
 
-use crate::config::{CMD_NONE, SENSOR_POLL_MS};
+use crate::config::SENSOR_POLL_MS;
+use crate::pure::Command;
 use crate::state;
 
 pub async fn pulse_interruptible(
     relay: &mut PinDriver<'static, AnyOutputPin, Output>,
     duration_ms: u64,
-) -> Result<Option<u8>> {
+) -> Result<Option<Command>> {
     relay.set_high()?;
     let start = Instant::now();
     let duration = TimeDuration::from_millis(duration_ms);
     loop {
         let command = state::take_command();
-        if command != CMD_NONE {
+        if command != Command::None {
             relay.set_low()?;
             return Ok(Some(command));
         }

@@ -23,3 +23,7 @@ target
 
 # Local ESP-IDF build log
 esp-build.log
+node_modules/
+
+# Generated Deno global type declarations (regenerated on `postinstall`)
+types/deno.d.ts

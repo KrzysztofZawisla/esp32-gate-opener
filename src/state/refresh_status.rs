@@ -7,9 +7,7 @@ use esp_idf_hal::gpio::{AnyIOPin, Input, PinDriver};
 #[cfg(target_os = "espidf")]
 use super::{FAULT, STATUS_CODE};
 #[cfg(target_os = "espidf")]
-use crate::pure::sensor_status;
-#[cfg(target_os = "espidf")]
-use crate::pure::{FAULT_SENSOR, ST_ERROR};
+use crate::pure::{sensor_status, Fault, Status};
 
 #[cfg(target_os = "espidf")]
 pub fn refresh_status(
@@ -17,10 +15,10 @@ pub fn refresh_status(
     closed_sensor: &PinDriver<'static, AnyIOPin, Input>,
 ) {
     let code = sensor_status(open_sensor.is_low(), closed_sensor.is_low());
-    STATUS_CODE.store(code, Ordering::Relaxed);
-    if code == ST_ERROR {
-        FAULT.fetch_or(FAULT_SENSOR, Ordering::Relaxed);
+    STATUS_CODE.store(code.bits(), Ordering::Relaxed);
+    if code == Status::Error {
+        FAULT.fetch_or(Fault::SENSOR.bits(), Ordering::Relaxed);
     } else {
-        FAULT.fetch_and(!FAULT_SENSOR, Ordering::Relaxed);
+        FAULT.fetch_and(!Fault::SENSOR.bits(), Ordering::Relaxed);
     }
 }

@@ -9,6 +9,9 @@
     "flash": "cargo run --release",
     "run": "npm run flash",
     "monitor": "espflash monitor",
+    "postinstall": "deno types > types/deno.d.ts",
+    "size": "deno run --allow-read scripts/check-size.ts",
+    "typecheck": "tsc --noEmit",
     "test": "cargo test --lib",
     "ota:image": "cargo build --release && espflash save-image --chip esp32 target/xtensa-esp32-espidf/release/esp32-gate-opener gate.bin"
   },
@@ -18,5 +21,8 @@
     "gate-opener"
   ],
   "license": "ISC",
-  "packageManager": "pnpm@10.30.1"
+  "packageManager": "pnpm@10.30.1",
+  "dependencies": {
+    "typescript": "^7.0.2"
+  }
 }

@@ -27,6 +27,7 @@ mod pure;
 mod state;
 
 use config::*;
+use pure::Command;
 use state::{battery_pct, refresh_status, take_command};
 
 fn main() -> Result<()> {
@@ -121,25 +122,25 @@ async fn gate_task(pins: &mut gate::GatePins) {
     loop {
         refresh_status(&pins.open_sensor, &pins.closed_sensor);
         let command = take_command();
-        if command != CMD_NONE {
+        if command != Command::None {
             if battery_pct() < config_storage::battery_min_pct() {
                 warn!(
                     "Battery too low ({}%), refusing to move the gate",
                     battery_pct()
                 );
-                state::set_fault(config::FAULT_BATTERY);
+                state::set_fault(pure::Fault::BATTERY);
                 homeassistant::publish_fault();
                 continue;
             }
-            state::clear_fault(config::FAULT_BATTERY);
+            state::clear_fault(pure::Fault::BATTERY);
             let mut current = command;
             loop {
                 current = gate::handle_command(current, pins)
                     .await
-                    .unwrap_or(CMD_NONE);
+                    .unwrap_or(Command::None);
                 refresh_status(&pins.open_sensor, &pins.closed_sensor);
                 homeassistant::publish_obstacle();
-                if current == CMD_NONE {
+                if current == Command::None {
                     homeassistant::publish_status();
                     homeassistant::publish_fault();
                     break;

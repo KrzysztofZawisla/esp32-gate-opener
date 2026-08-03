@@ -7,30 +7,55 @@ on:
 jobs:
   host-tests:
     runs-on: ubuntu-latest
-    # rust-toolchain.toml pins the custom `esp` toolchain; override it so the
-    # host-only checks run on stable.
     env:
       RUSTUP_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v4
-
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
-
       - name: Check formatting
         run: cargo fmt --check
-
       - name: Run host-side unit tests
         run: cargo test --lib --target x86_64-unknown-linux-gnu
-
       - name: Lint
         run: cargo clippy --lib --target x86_64-unknown-linux-gnu -- -D warnings
-
+      - name: Audit dependencies for known vulnerabilities
+        uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+  ts-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Install dependencies
+        run: corepack enable && pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Lint and format TS scripts
+        run: deno lint scripts && deno fmt --check scripts
   esp32-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Build firmware
-        run: docker build .
+      - name: Build and lint firmware
+        run: docker build -t esp32-gate-opener .
+      - name: Install Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Extract firmware ELF from image
+        run: |
+          docker create --name gate-bin esp32-gate-opener
+          docker cp gate-bin:/esp32-gate-opener target/xtensa-esp32-espidf/release/esp32-gate-opener
+          docker rm gate-bin
+      - name: Enforce firmware size budget
+        run: deno run --allow-read scripts/check-size.ts

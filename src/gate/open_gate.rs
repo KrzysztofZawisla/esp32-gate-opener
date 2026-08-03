@@ -1,8 +1,8 @@
 use anyhow::Result;
 use embassy_time::{Duration as TimeDuration, Timer};
 
-use crate::config::{CMD_NONE, SENSOR_POLL_MS};
-use crate::pure;
+use crate::config::SENSOR_POLL_MS;
+use crate::pure::{Command, Status};
 use crate::state;
 
 use super::grace_ms;
@@ -14,14 +14,14 @@ use super::wait_interruptible;
 use super::GatePins;
 use log::{info, warn};
 
-pub async fn open_gate(pins: &mut GatePins) -> Result<u8> {
+pub async fn open_gate(pins: &mut GatePins) -> Result<Command> {
     if pins.open_sensor.is_low() {
-        state::set_status_code(pure::ST_OPEN);
+        state::set_status_code(Status::Open);
         set_lamp(pins, false, false)?;
-        return Ok(CMD_NONE);
+        return Ok(Command::None);
     }
 
-    state::set_status_code(pure::ST_OPENING);
+    state::set_status_code(Status::Opening);
     set_lamp(pins, true, false)?;
 
     let timeout_ms = motion_timeout_ms();
@@ -38,7 +38,7 @@ pub async fn open_gate(pins: &mut GatePins) -> Result<u8> {
                 break;
             }
             let command = state::take_command();
-            if command != CMD_NONE {
+            if command != Command::None {
                 return Ok(command);
             }
             Timer::after(TimeDuration::from_millis(SENSOR_POLL_MS)).await;
@@ -54,11 +54,11 @@ pub async fn open_gate(pins: &mut GatePins) -> Result<u8> {
     }
 
     if pins.open_sensor.is_low() {
-        state::set_status_code(pure::ST_OPEN);
+        state::set_status_code(Status::Open);
     } else {
         warn!("Open limit not reached, gate is not fully open");
-        state::set_status_code(pure::ST_STOPPED);
+        state::set_status_code(Status::Stopped);
     }
     set_lamp(pins, false, false)?;
-    Ok(CMD_NONE)
+    Ok(Command::None)
 }

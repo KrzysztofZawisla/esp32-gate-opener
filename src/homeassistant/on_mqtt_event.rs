@@ -1,7 +1,8 @@
 use esp_idf_svc::mqtt::client::{EspMqttEvent, EventPayload, QoS};
 use log::{info, warn};
 
-use crate::config::{AVAILABILITY_TOPIC, CMD_CLOSE, CMD_OPEN, COMMAND_TOPIC};
+use crate::config::{AVAILABILITY_TOPIC, COMMAND_TOPIC};
+use crate::pure::Command;
 use crate::state;
 
 use super::publish_discovery;
@@ -36,11 +37,11 @@ pub(crate) fn on_mqtt_event(event: EspMqttEvent) {
         } if topic == COMMAND_TOPIC => match data {
             b"open" => {
                 info!("MQTT open command received");
-                state::submit_command(CMD_OPEN);
+                state::submit_command(Command::Open);
             }
             b"close" => {
                 info!("MQTT close command received");
-                state::submit_command(CMD_CLOSE);
+                state::submit_command(Command::Close);
             }
             _ => {}
         },

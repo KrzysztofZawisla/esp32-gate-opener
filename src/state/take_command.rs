@@ -1,9 +1,9 @@
 use core::sync::atomic::Ordering;
 
-use crate::config::CMD_NONE;
+use crate::pure::Command;
 
 use super::COMMAND;
 
-pub fn take_command() -> u8 {
-    COMMAND.swap(CMD_NONE, Ordering::Relaxed)
+pub fn take_command() -> Command {
+    Command::from_raw(COMMAND.swap(Command::None.bits(), Ordering::Relaxed))
 }

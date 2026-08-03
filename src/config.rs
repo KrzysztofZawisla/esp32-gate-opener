@@ -15,9 +15,3 @@ pub const LISTEN_PORT: u16 = 80;
 pub const GATE_PULSE_MS: u64 = 1000;
 pub const SENSOR_POLL_MS: u64 = 100;
 pub const MQTT_KEEPALIVE_S: u64 = 10;
-
-pub const CMD_NONE: u8 = 0;
-pub const CMD_OPEN: u8 = 1;
-pub const CMD_CLOSE: u8 = 2;
-
-pub use crate::pure::FAULT_BATTERY;

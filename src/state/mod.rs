@@ -1,10 +1,9 @@
 use core::sync::atomic::{AtomicBool, AtomicU8};
 
-use crate::config::CMD_NONE;
-use crate::pure::ST_STOPPED;
+use crate::pure::{Command, Status};
 
-pub(crate) static STATUS_CODE: AtomicU8 = AtomicU8::new(ST_STOPPED);
-pub(crate) static COMMAND: AtomicU8 = AtomicU8::new(CMD_NONE);
+pub(crate) static STATUS_CODE: AtomicU8 = AtomicU8::new(Status::Stopped.bits());
+pub(crate) static COMMAND: AtomicU8 = AtomicU8::new(Command::None.bits());
 pub(crate) static FAULT: AtomicU8 = AtomicU8::new(0);
 pub(crate) static OBSTACLE: AtomicBool = AtomicBool::new(false);
 pub(crate) static BATTERY_PCT: AtomicU8 = AtomicU8::new(100);

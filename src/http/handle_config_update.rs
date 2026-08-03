@@ -1,8 +1,10 @@
+use crate::config_storage;
+use crate::pure::{
+    valid_battery_min_pct, valid_gate_pulse_ms, valid_grace_ms, valid_motion_timeout_s,
+    valid_telemetry_interval_s,
+};
 use anyhow::{anyhow, Result};
 use esp_idf_svc::http::server::{EspHttpConnection, Request};
-
-use crate::config_storage;
-
 pub(crate) fn handle_config_update(request: &Request<&mut EspHttpConnection<'_>>) -> Result<()> {
     let uri = request.uri();
     let query = uri
@@ -17,35 +19,35 @@ pub(crate) fn handle_config_update(request: &Request<&mut EspHttpConnection<'_>>
             }
             "battery_min_pct" => {
                 if let Ok(parsed_value) = value.parse::<u8>() {
-                    if parsed_value <= 100 {
+                    if valid_battery_min_pct(parsed_value) {
                         failed |= !config_storage::set_battery_min_pct(parsed_value);
                     }
                 }
             }
             "grace_ms" => {
                 if let Ok(parsed_value) = value.parse::<u16>() {
-                    if parsed_value <= 60_000 {
+                    if valid_grace_ms(parsed_value) {
                         failed |= !config_storage::set_grace_ms(parsed_value);
                     }
                 }
             }
             "motion_timeout_s" => {
                 if let Ok(parsed_value) = value.parse::<u16>() {
-                    if (1..=300).contains(&parsed_value) {
+                    if valid_motion_timeout_s(parsed_value) {
                         failed |= !config_storage::set_motion_timeout_s(parsed_value);
                     }
                 }
             }
             "gate_pulse_ms" => {
                 if let Ok(parsed_value) = value.parse::<u64>() {
-                    if (1..=60_000).contains(&parsed_value) {
+                    if valid_gate_pulse_ms(parsed_value) {
                         failed |= !config_storage::set_gate_pulse_ms(parsed_value);
                     }
                 }
             }
             "telemetry_interval_s" => {
                 if let Ok(parsed_value) = value.parse::<u64>() {
-                    if (1..=3600).contains(&parsed_value) {
+                    if valid_telemetry_interval_s(parsed_value) {
                         failed |= !config_storage::set_telemetry_interval_s(parsed_value);
                     }
                 }

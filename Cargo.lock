@@ -706,6 +706,7 @@ name = "esp32-gate-opener"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bitflags 2.13.1",
  "embassy-futures",
  "embassy-time",
  "embassy-time-queue-utils",

@@ -1,7 +1,9 @@
 use core::sync::atomic::Ordering;
 
+use crate::pure::Fault;
+
 use super::FAULT;
 
-pub fn clear_fault(mask: u8) {
-    FAULT.fetch_and(!mask, Ordering::Relaxed);
+pub fn clear_fault(mask: Fault) {
+    FAULT.fetch_and(!mask.bits(), Ordering::Relaxed);
 }

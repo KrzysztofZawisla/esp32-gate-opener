@@ -12,6 +12,8 @@ RUN curl -sSf https://raw.githubusercontent.com/esp-rs/espup/main/espup/install.
 RUN cargo install ldproxy --locked
 WORKDIR /app
 COPY . .
-RUN bash -c "source \$IDF_PATH/export.sh && cargo build --release"
+# espup bundles clippy; it is already present in the toolchain. The firmware
+# size budget is enforced separately in CI via scripts/check-size.ts.
+RUN bash -c "source \$IDF_PATH/export.sh && cargo build --release && cargo clippy --release -- -D warnings"
 FROM scratch AS release
 COPY --from=build /app/target/xtensa-esp32-espidf/release/esp32-gate-opener /esp32-gate-opener
