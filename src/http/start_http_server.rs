@@ -54,17 +54,18 @@ pub fn start_http_server() -> Result<EspHttpServer<'static>> {
         } else {
             let key = config_storage::http_api_key();
             let key = if key.is_empty() { String::new() } else { "***".to_string() };
-            let body = format!(
-                "{{\"http_api_key\":\"{}\",\"battery_min_pct\":{},\"grace_ms\":{},\"motion_timeout_s\":{},\"gate_pulse_ms\":{},\"telemetry_interval_s\":{}}}",
-                key,
-                config_storage::battery_min_pct(),
-                config_storage::grace_ms(),
-                config_storage::motion_timeout_s(),
-                config_storage::gate_pulse_ms(),
-                config_storage::telemetry_interval_s(),
-            );
+            let body = ConfigResponse {
+                http_api_key: key,
+                battery_min_pct: config_storage::battery_min_pct(),
+                grace_ms: config_storage::grace_ms(),
+                motion_timeout_s: config_storage::motion_timeout_s(),
+                gate_pulse_ms: config_storage::gate_pulse_ms(),
+                telemetry_interval_s: config_storage::telemetry_interval_s(),
+            };
             let mut resp = req.into_response(200, None, &[("Content-Type", "application/json")])?;
-            resp.write_all(body.as_bytes())?;
+            if let Ok(serialized) = serde_json::to_string(&body) {
+                resp.write_all(serialized.as_bytes())?;
+            }
         }
         Ok(())
     })?;
@@ -102,4 +103,14 @@ pub fn start_http_server() -> Result<EspHttpServer<'static>> {
     })?;
 
     Ok(server)
+}
+
+#[derive(serde::Serialize)]
+struct ConfigResponse {
+    http_api_key: String,
+    battery_min_pct: u8,
+    grace_ms: u16,
+    motion_timeout_s: u16,
+    gate_pulse_ms: u64,
+    telemetry_interval_s: u64,
 }

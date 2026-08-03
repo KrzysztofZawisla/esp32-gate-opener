@@ -25,6 +25,8 @@ embuild = { version = "0.33", features = ["espidf"] }
 [dependencies]
 anyhow = "1"
 log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 # ESP-IDF v5.3-compatible crate set (esp-idf-hal 0.46+/esp-idf-svc 0.52+ target
 # IDF 5.2/6.0 and do not compile against 5.3.x bindings; 0.45/0.51/0.28/0.36 is
