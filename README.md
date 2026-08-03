@@ -570,7 +570,8 @@ logged as a warning.)
 ### Running the unit tests
 
 The pure logic (status/sensor mapping, battery %, obstacle level) lives in
-`src/pure.rs` with host-side `#[cfg(test)]` tests. Run them on a host toolchain:
+`src/pure/` with host-side `#[cfg(test)]` tests (in `src/pure/tests.rs`). Run them
+on a host toolchain:
 
 ```
 cargo test --lib
@@ -585,19 +586,23 @@ esp32-gate-opener/
 ├── src/
 │   ├── main.rs            Boot, WiFi, async task setup
 │   ├── config.rs          Compile-time config (env!) + constants
-│   ├── config_storage.rs  Runtime config in NVS (overrides defaults)
-│   ├── gate.rs            Motion sequences, fail-open safety, lamp/relay control
-│   ├── http.rs            HTTP server, endpoints, `X-Api-Key` auth
+│   ├── config_storage/    Runtime config in NVS (overrides defaults)
+│   ├── gate/              Motion sequences, fail-open safety, lamp/relay control
+│   ├── http/              HTTP server, endpoints, `X-Api-Key` auth
 │   ├── ota.rs             OTA flashing over HTTP
-│   ├── homeassistant.rs   MQTT client, telemetry publishes, HA discovery
-│   ├── state.rs           Shared atomics (status, command, fault, obstacle, battery)
-│   └── pure.rs            Pure logic + host-side unit tests
+│   ├── homeassistant/     MQTT client, telemetry publishes, HA discovery
+│   ├── state/             Shared atomics (status, command, fault, obstacle, battery)
+│   └── pure/              Pure logic + host-side unit tests
 ├── .cargo/config.toml     Build target, runner, compile-time `[env]` config
 ├── partitions.csv         Two-slot OTA partition table
 ├── sdkconfig.defaults     ESP-IDF Kconfig overrides (partition table, rollback)
 ├── espflash.toml          espflash flash settings (partition table)
 └── Cargo.toml             Crate + release profile (LTO, opt-size, panic=abort)
 ```
+
+Each module folder (`config_storage/`, `gate/`, `http/`, `homeassistant/`, `state/`,
+`pure/`) follows a **one file per function** layout: shared state/constants live in
+`mod.rs`, each function has its own file, and functions are re-exported from `mod.rs`.
 
 The release profile is tuned for a production image: `lto = "fat"`,
 `codegen-units = 1`, `opt-level = "s"` and `panic = "abort"` — the resulting app

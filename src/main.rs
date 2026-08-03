@@ -8,7 +8,7 @@ use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration as WifiC
 use esp_idf_hal::adc::attenuation::DB_11;
 use esp_idf_hal::adc::oneshot::config::AdcChannelConfig;
 use esp_idf_hal::adc::oneshot::{AdcChannelDriver, AdcDriver};
-use esp_idf_hal::gpio::{AnyIOPin, AnyOutputPin, Input, Output, PinDriver, Pull, ADCPin};
+use esp_idf_hal::gpio::{AnyIOPin, AnyOutputPin, PinDriver, Pull, ADCPin};
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::task::block_on;
 use esp_idf_svc::eventloop::EspSystemEventLoop;
@@ -48,18 +48,19 @@ fn main() -> Result<()> {
     let nvs = EspDefaultNvsPartition::take()?;
     config_storage::init(nvs.clone());
 
-    let mut open_relay = PinDriver::output(AnyOutputPin::from(peripherals.pins.gpio4))?;
-    let mut close_relay = PinDriver::output(AnyOutputPin::from(peripherals.pins.gpio23))?;
-    let mut lamp_green = PinDriver::output(AnyOutputPin::from(peripherals.pins.gpio27))?;
-    let mut lamp_red = PinDriver::output(AnyOutputPin::from(peripherals.pins.gpio14))?;
-
-    let mut open_sensor = PinDriver::input(AnyIOPin::from(peripherals.pins.gpio25))?;
-    open_sensor.set_pull(Pull::Up)?;
-    let mut closed_sensor = PinDriver::input(AnyIOPin::from(peripherals.pins.gpio26))?;
-    closed_sensor.set_pull(Pull::Up)?;
-    let mut obstacle_sensor = PinDriver::input(AnyIOPin::from(peripherals.pins.gpio33))?;
-    obstacle_sensor.set_pull(Pull::Up)?;
-    let obstacle_active_level = env!("OBSTACLE_ACTIVE_LEVEL") == "high";
+    let mut pins = gate::GatePins {
+        open_relay: PinDriver::output(AnyOutputPin::from(peripherals.pins.gpio4))?,
+        close_relay: PinDriver::output(AnyOutputPin::from(peripherals.pins.gpio23))?,
+        lamp_green: PinDriver::output(AnyOutputPin::from(peripherals.pins.gpio27))?,
+        lamp_red: PinDriver::output(AnyOutputPin::from(peripherals.pins.gpio14))?,
+        open_sensor: PinDriver::input(AnyIOPin::from(peripherals.pins.gpio25))?,
+        closed_sensor: PinDriver::input(AnyIOPin::from(peripherals.pins.gpio26))?,
+        obstacle_sensor: PinDriver::input(AnyIOPin::from(peripherals.pins.gpio33))?,
+        obstacle_active_level: env!("OBSTACLE_ACTIVE_LEVEL") == "high",
+    };
+    pins.open_sensor.set_pull(Pull::Up)?;
+    pins.closed_sensor.set_pull(Pull::Up)?;
+    pins.obstacle_sensor.set_pull(Pull::Up)?;
 
     let adc = AdcDriver::new(peripherals.adc1)?;
     let adc_config = AdcChannelConfig {
@@ -68,11 +69,11 @@ fn main() -> Result<()> {
     };
     let mut battery_channel = AdcChannelDriver::new(&adc, peripherals.pins.gpio36, &adc_config)?;
 
-    open_relay.set_low()?;
-    close_relay.set_low()?;
-    gate::set_lamp(&mut lamp_green, &mut lamp_red, false, false)?;
+    pins.open_relay.set_low()?;
+    pins.close_relay.set_low()?;
+    gate::set_lamp(&mut pins, false, false)?;
 
-    refresh_status(&open_sensor, &closed_sensor);
+    refresh_status(&pins.open_sensor, &pins.closed_sensor);
 
     let mut wifi = BlockingWifi::wrap(
         EspWifi::new(peripherals.modem, sys_loop.clone(), Some(nvs))?,
@@ -108,16 +109,7 @@ fn main() -> Result<()> {
 
     info!("Running 24/7 — WiFi, MQTT and HTTP are always on");
     block_on(join(
-        gate_task(
-            &mut open_relay,
-            &mut close_relay,
-            &mut lamp_green,
-            &mut lamp_red,
-            &mut open_sensor,
-            &mut closed_sensor,
-            &mut obstacle_sensor,
-            obstacle_active_level,
-        ),
+        gate_task(&mut pins),
         telemetry_task(&mut wifi, &mut battery_channel),
     ));
 
@@ -125,18 +117,9 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-async fn gate_task(
-    open_relay: &mut PinDriver<'static, AnyOutputPin, Output>,
-    close_relay: &mut PinDriver<'static, AnyOutputPin, Output>,
-    lamp_green: &mut PinDriver<'static, AnyOutputPin, Output>,
-    lamp_red: &mut PinDriver<'static, AnyOutputPin, Output>,
-    open_sensor: &mut PinDriver<'static, AnyIOPin, Input>,
-    closed_sensor: &mut PinDriver<'static, AnyIOPin, Input>,
-    obstacle_sensor: &mut PinDriver<'static, AnyIOPin, Input>,
-    obstacle_active_level: bool,
-) {
+async fn gate_task(pins: &mut gate::GatePins) {
     loop {
-        refresh_status(open_sensor, closed_sensor);
+        refresh_status(&pins.open_sensor, &pins.closed_sensor);
         let command = take_command();
         if command != CMD_NONE {
             if battery_pct() < config_storage::battery_min_pct() {
@@ -151,20 +134,10 @@ async fn gate_task(
             state::clear_fault(config::FAULT_BATTERY);
             let mut current = command;
             loop {
-                current = gate::handle_command(
-                    current,
-                    open_relay,
-                    close_relay,
-                    lamp_green,
-                    lamp_red,
-                    open_sensor,
-                    closed_sensor,
-                    obstacle_sensor,
-                    obstacle_active_level,
-                )
-                .await
-                .unwrap_or(CMD_NONE);
-                refresh_status(open_sensor, closed_sensor);
+                current = gate::handle_command(current, pins)
+                    .await
+                    .unwrap_or(CMD_NONE);
+                refresh_status(&pins.open_sensor, &pins.closed_sensor);
                 homeassistant::publish_obstacle();
                 if current == CMD_NONE {
                     homeassistant::publish_status();

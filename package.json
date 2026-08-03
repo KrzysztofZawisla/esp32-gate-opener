@@ -1,0 +1,22 @@
+{
+  "name": "esp32-gate-opener-clone",
+  "version": "1.0.0",
+  "description": "Build/flash/test helpers for the ESP32 gate opener firmware (Rust + ESP-IDF).",
+  "private": true,
+  "scripts": {
+    "build": "cargo build --release",
+    "check": "cargo check",
+    "flash": "cargo run --release",
+    "run": "npm run flash",
+    "monitor": "espflash monitor",
+    "test": "cargo test --lib",
+    "ota:image": "cargo build --release && espflash save-image --chip esp32 target/xtensa-esp32-espidf/release/esp32-gate-opener gate.bin"
+  },
+  "keywords": [
+    "esp32",
+    "esp-idf",
+    "gate-opener"
+  ],
+  "license": "ISC",
+  "packageManager": "pnpm@10.30.1"
+}
