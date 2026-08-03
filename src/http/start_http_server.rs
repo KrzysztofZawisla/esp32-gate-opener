@@ -53,7 +53,11 @@ pub fn start_http_server() -> Result<EspHttpServer<'static>> {
             req.into_status_response(401)?;
         } else {
             let key = config_storage::http_api_key();
-            let key = if key.is_empty() { String::new() } else { "***".to_string() };
+            let key = if key.is_empty() {
+                String::new()
+            } else {
+                "***".to_string()
+            };
             let body = ConfigResponse {
                 http_api_key: key,
                 battery_min_pct: config_storage::battery_min_pct(),

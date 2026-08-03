@@ -86,7 +86,9 @@ pub(crate) fn publish_discovery() {
     };
     publish_raw(
         &format!("homeassistant/sensor/{unique_id}/battery/config"),
-        serde_json::to_string(&battery).unwrap_or_default().as_bytes(),
+        serde_json::to_string(&battery)
+            .unwrap_or_default()
+            .as_bytes(),
         true,
     );
 
@@ -100,7 +102,9 @@ pub(crate) fn publish_discovery() {
     };
     publish_raw(
         &format!("homeassistant/sensor/{unique_id}/voltage/config"),
-        serde_json::to_string(&voltage).unwrap_or_default().as_bytes(),
+        serde_json::to_string(&voltage)
+            .unwrap_or_default()
+            .as_bytes(),
         true,
     );
 
@@ -115,7 +119,9 @@ pub(crate) fn publish_discovery() {
     };
     publish_raw(
         &format!("homeassistant/binary_sensor/{unique_id}/obstruction/config"),
-        serde_json::to_string(&obstacle).unwrap_or_default().as_bytes(),
+        serde_json::to_string(&obstacle)
+            .unwrap_or_default()
+            .as_bytes(),
         true,
     );
 

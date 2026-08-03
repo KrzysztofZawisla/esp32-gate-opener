@@ -3,20 +3,15 @@ use esp_idf_svc::http::server::{EspHttpConnection, Request};
 
 use crate::config_storage;
 
-use super::url_decode;
-
 pub(crate) fn handle_config_update(request: &Request<&mut EspHttpConnection<'_>>) -> Result<()> {
     let uri = request.uri();
-    let Some(query_string) = uri.split_once('?').map(|(_, rest)| rest) else {
-        return Ok(());
-    };
+    let query = uri
+        .split_once('?')
+        .map(|(_, rest)| rest)
+        .unwrap_or_default();
     let mut failed = false;
-    for pair in query_string.split('&') {
-        let Some((key, value)) = pair.split_once('=') else {
-            continue;
-        };
-        let value = url_decode(value);
-        match key {
+    for (key, value) in serde_urlencoded::from_str::<Vec<(String, String)>>(query)? {
+        match key.as_str() {
             "http_api_key" => {
                 failed |= !config_storage::set_http_api_key(&value);
             }
