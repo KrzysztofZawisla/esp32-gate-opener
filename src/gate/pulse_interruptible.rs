@@ -13,10 +13,10 @@ pub async fn pulse_interruptible(
     let start = Instant::now();
     let duration = TimeDuration::from_millis(duration_ms);
     loop {
-        let cmd = state::take_command();
-        if cmd != CMD_NONE {
+        let command = state::take_command();
+        if command != CMD_NONE {
             relay.set_low()?;
-            return Ok(Some(cmd));
+            return Ok(Some(command));
         }
         if Instant::now().saturating_duration_since(start) >= duration {
             break;

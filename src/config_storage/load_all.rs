@@ -12,24 +12,24 @@ pub fn load_all() {
         return;
     };
 
-    if let Ok(Some(v)) = nvs.get_u8(KEY_BATTERY_MIN_PCT) {
-        BATTERY_MIN_PCT.store(v, Ordering::Relaxed);
+    if let Ok(Some(value)) = nvs.get_u8(KEY_BATTERY_MIN_PCT) {
+        BATTERY_MIN_PCT.store(value, Ordering::Relaxed);
     }
-    if let Ok(Some(v)) = nvs.get_u16(KEY_GRACE_MS) {
-        GRACE_MS.store(v, Ordering::Relaxed);
+    if let Ok(Some(value)) = nvs.get_u16(KEY_GRACE_MS) {
+        GRACE_MS.store(value, Ordering::Relaxed);
     }
-    if let Ok(Some(v)) = nvs.get_u16(KEY_MOTION_TIMEOUT_S) {
-        MOTION_TIMEOUT_S.store(v, Ordering::Relaxed);
+    if let Ok(Some(value)) = nvs.get_u16(KEY_MOTION_TIMEOUT_S) {
+        MOTION_TIMEOUT_S.store(value, Ordering::Relaxed);
     }
-    if let Ok(Some(v)) = nvs.get_u32(KEY_GATE_PULSE_MS) {
-        GATE_PULSE_MS.store(v, Ordering::Relaxed);
+    if let Ok(Some(value)) = nvs.get_u32(KEY_GATE_PULSE_MS) {
+        GATE_PULSE_MS.store(value, Ordering::Relaxed);
     }
-    if let Ok(Some(v)) = nvs.get_u32(KEY_TELEMETRY_INTERVAL_S) {
-        TELEMETRY_INTERVAL_S.store(v, Ordering::Relaxed);
+    if let Ok(Some(value)) = nvs.get_u32(KEY_TELEMETRY_INTERVAL_S) {
+        TELEMETRY_INTERVAL_S.store(value, Ordering::Relaxed);
     }
 
-    let mut buf = [0u8; 64];
-    if let Ok(Some(v)) = nvs.get_str(KEY_HTTP_API_KEY, &mut buf) {
-        *HTTP_API_KEY.lock().unwrap() = v.to_string();
+    let mut buffer = [0u8; 64];
+    if let Ok(Some(value)) = nvs.get_str(KEY_HTTP_API_KEY, &mut buffer) {
+        *HTTP_API_KEY.lock().unwrap() = value.to_string();
     }
 }

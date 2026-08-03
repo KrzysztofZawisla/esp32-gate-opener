@@ -5,13 +5,13 @@ use crate::config_storage;
 
 use super::url_decode;
 
-pub(crate) fn handle_config_update(req: &Request<&mut EspHttpConnection<'_>>) -> Result<()> {
-    let uri = req.uri();
-    let Some(query) = uri.split_once('?').map(|(_, q)| q) else {
+pub(crate) fn handle_config_update(request: &Request<&mut EspHttpConnection<'_>>) -> Result<()> {
+    let uri = request.uri();
+    let Some(query_string) = uri.split_once('?').map(|(_, rest)| rest) else {
         return Ok(());
     };
     let mut failed = false;
-    for pair in query.split('&') {
+    for pair in query_string.split('&') {
         let Some((key, value)) = pair.split_once('=') else {
             continue;
         };
@@ -21,37 +21,37 @@ pub(crate) fn handle_config_update(req: &Request<&mut EspHttpConnection<'_>>) ->
                 failed |= !config_storage::set_http_api_key(&value);
             }
             "battery_min_pct" => {
-                if let Ok(v) = value.parse::<u8>() {
-                    if v <= 100 {
-                        failed |= !config_storage::set_battery_min_pct(v);
+                if let Ok(parsed_value) = value.parse::<u8>() {
+                    if parsed_value <= 100 {
+                        failed |= !config_storage::set_battery_min_pct(parsed_value);
                     }
                 }
             }
             "grace_ms" => {
-                if let Ok(v) = value.parse::<u16>() {
-                    if v <= 60_000 {
-                        failed |= !config_storage::set_grace_ms(v);
+                if let Ok(parsed_value) = value.parse::<u16>() {
+                    if parsed_value <= 60_000 {
+                        failed |= !config_storage::set_grace_ms(parsed_value);
                     }
                 }
             }
             "motion_timeout_s" => {
-                if let Ok(v) = value.parse::<u16>() {
-                    if (1..=300).contains(&v) {
-                        failed |= !config_storage::set_motion_timeout_s(v);
+                if let Ok(parsed_value) = value.parse::<u16>() {
+                    if (1..=300).contains(&parsed_value) {
+                        failed |= !config_storage::set_motion_timeout_s(parsed_value);
                     }
                 }
             }
             "gate_pulse_ms" => {
-                if let Ok(v) = value.parse::<u64>() {
-                    if (1..=60_000).contains(&v) {
-                        failed |= !config_storage::set_gate_pulse_ms(v);
+                if let Ok(parsed_value) = value.parse::<u64>() {
+                    if (1..=60_000).contains(&parsed_value) {
+                        failed |= !config_storage::set_gate_pulse_ms(parsed_value);
                     }
                 }
             }
             "telemetry_interval_s" => {
-                if let Ok(v) = value.parse::<u64>() {
-                    if (1..=3600).contains(&v) {
-                        failed |= !config_storage::set_telemetry_interval_s(v);
+                if let Ok(parsed_value) = value.parse::<u64>() {
+                    if (1..=3600).contains(&parsed_value) {
+                        failed |= !config_storage::set_telemetry_interval_s(parsed_value);
                     }
                 }
             }

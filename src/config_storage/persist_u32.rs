@@ -13,8 +13,8 @@ pub(crate) fn persist_u32(key: &str, value: u32, slot: &AtomicU32) -> bool {
             slot.store(value, Ordering::Relaxed);
             true
         }
-        Err(e) => {
-            warn!("Failed to persist {key}: {e}");
+        Err(error) => {
+            warn!("Failed to persist {key}: {error}");
             false
         }
     }

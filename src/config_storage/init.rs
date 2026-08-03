@@ -24,6 +24,6 @@ pub fn init(partition: EspDefaultNvsPartition) {
             *NVS.lock().unwrap() = Some(nvs);
             load_all();
         }
-        Err(e) => warn!("Failed to open NVS runtime config: {e}; using defaults"),
+        Err(error) => warn!("Failed to open NVS runtime config: {error}; using defaults"),
     }
 }

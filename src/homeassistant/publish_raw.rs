@@ -10,8 +10,8 @@ pub(crate) fn publish_raw(topic: &str, payload: &[u8], retain: bool) -> bool {
     };
     match client.publish(topic, QoS::AtLeastOnce, retain, payload) {
         Ok(_) => true,
-        Err(e) => {
-            warn!("MQTT publish to {topic} failed: {e}");
+        Err(error) => {
+            warn!("MQTT publish to {topic} failed: {error}");
             false
         }
     }

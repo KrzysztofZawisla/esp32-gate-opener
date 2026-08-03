@@ -8,7 +8,7 @@ use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration as WifiC
 use esp_idf_hal::adc::attenuation::DB_11;
 use esp_idf_hal::adc::oneshot::config::AdcChannelConfig;
 use esp_idf_hal::adc::oneshot::{AdcChannelDriver, AdcDriver};
-use esp_idf_hal::gpio::{AnyIOPin, AnyOutputPin, PinDriver, Pull, ADCPin};
+use esp_idf_hal::gpio::{ADCPin, AnyIOPin, AnyOutputPin, PinDriver, Pull};
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::task::block_on;
 use esp_idf_svc::eventloop::EspSystemEventLoop;
@@ -38,8 +38,8 @@ fn main() -> Result<()> {
     // (even after a normal power cycle), not just after a crash. Confirm as soon
     // as the firmware is past basic init — a crash before this point still rolls back.
     if let Ok(mut ota) = esp_idf_svc::ota::EspOta::new() {
-        if let Err(e) = ota.mark_running_slot_valid() {
-            warn!("Failed to mark OTA slot valid: {e}");
+        if let Err(error) = ota.mark_running_slot_valid() {
+            warn!("Failed to mark OTA slot valid: {error}");
         }
     }
 
@@ -97,8 +97,8 @@ fn main() -> Result<()> {
                 }
                 break;
             }
-            Err(e) => {
-                warn!("WiFi connect failed (attempt {attempt}/6): {e}");
+            Err(error) => {
+                warn!("WiFi connect failed (attempt {attempt}/6): {error}");
                 std::thread::sleep(std::time::Duration::from_secs(5));
             }
         }
@@ -150,12 +150,12 @@ async fn gate_task(pins: &mut gate::GatePins) {
     }
 }
 
-async fn telemetry_task<C, M>(
+async fn telemetry_task<AdcPin, AdcModule>(
     wifi: &mut BlockingWifi<EspWifi<'static>>,
-    battery_channel: &mut AdcChannelDriver<'static, C, M>,
+    battery_channel: &mut AdcChannelDriver<'static, AdcPin, AdcModule>,
 ) where
-    C: ADCPin,
-    M: Borrow<AdcDriver<'static, C::Adc>>,
+    AdcPin: ADCPin,
+    AdcModule: Borrow<AdcDriver<'static, AdcPin::Adc>>,
 {
     const RECONNECT_INTERVAL_S: u64 = 5;
     let mut last_periodic = Instant::now();

@@ -4,12 +4,12 @@ use log::{info, warn};
 use crate::config::{AVAILABILITY_TOPIC, CMD_CLOSE, CMD_OPEN, COMMAND_TOPIC};
 use crate::state;
 
-use super::MQTT_CLIENT;
 use super::publish_discovery;
 use super::publish_fault;
 use super::publish_obstacle;
 use super::publish_raw;
 use super::publish_status;
+use super::MQTT_CLIENT;
 
 pub(crate) fn on_mqtt_event(event: EspMqttEvent) {
     match event.payload() {
@@ -21,8 +21,8 @@ pub(crate) fn on_mqtt_event(event: EspMqttEvent) {
             publish_fault();
             publish_discovery();
             if let Some(client) = MQTT_CLIENT.lock().unwrap().as_mut() {
-                if let Err(e) = client.subscribe(COMMAND_TOPIC, QoS::AtMostOnce) {
-                    warn!("MQTT subscribe to {COMMAND_TOPIC} failed: {e}");
+                if let Err(error) = client.subscribe(COMMAND_TOPIC, QoS::AtMostOnce) {
+                    warn!("MQTT subscribe to {COMMAND_TOPIC} failed: {error}");
                 }
             }
         }

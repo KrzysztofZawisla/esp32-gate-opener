@@ -31,7 +31,10 @@ fn battery_percentage_linear_mapping() {
 fn battery_percentage_uses_median_and_divider() {
     let samples = [2000; 8];
     assert_eq!(median(&samples), Some(2000));
-    assert_eq!(battery_pct_from_samples(&samples, 6.0, 12600.0, 11500.0), 45);
+    assert_eq!(
+        battery_pct_from_samples(&samples, 6.0, 12600.0, 11500.0),
+        45
+    );
     assert_eq!(median(&[]), None);
     assert_eq!(battery_pct_from_samples(&[], 6.0, 12600.0, 11500.0), 0);
 }

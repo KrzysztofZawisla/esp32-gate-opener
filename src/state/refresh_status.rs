@@ -5,11 +5,11 @@ use core::sync::atomic::Ordering;
 use esp_idf_hal::gpio::{AnyIOPin, Input, PinDriver};
 
 #[cfg(target_os = "espidf")]
+use super::{FAULT, STATUS_CODE};
+#[cfg(target_os = "espidf")]
 use crate::pure::sensor_status;
 #[cfg(target_os = "espidf")]
 use crate::pure::{FAULT_SENSOR, ST_ERROR};
-#[cfg(target_os = "espidf")]
-use super::{FAULT, STATUS_CODE};
 
 #[cfg(target_os = "espidf")]
 pub fn refresh_status(

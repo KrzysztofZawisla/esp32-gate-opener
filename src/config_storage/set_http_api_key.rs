@@ -12,8 +12,8 @@ pub fn set_http_api_key(value: &str) -> bool {
             *HTTP_API_KEY.lock().unwrap() = value.to_string();
             true
         }
-        Err(e) => {
-            warn!("Failed to persist api_key: {e}");
+        Err(error) => {
+            warn!("Failed to persist api_key: {error}");
             false
         }
     }

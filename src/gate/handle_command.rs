@@ -3,9 +3,9 @@ use anyhow::Result;
 use crate::config::{CMD_CLOSE, CMD_NONE, CMD_OPEN};
 use crate::state;
 
-use super::GatePins;
 use super::close_gate;
 use super::open_gate;
+use super::GatePins;
 
 pub async fn handle_command(command: u8, pins: &mut GatePins) -> Result<u8> {
     let result = match command {

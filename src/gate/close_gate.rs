@@ -6,7 +6,6 @@ use crate::config::{CMD_NONE, SENSOR_POLL_MS};
 use crate::pure;
 use crate::state;
 
-use super::GatePins;
 use super::grace_ms;
 use super::motion_timeout_ms;
 use super::pulse_interruptible;
@@ -14,6 +13,7 @@ use super::pulse_ms;
 use super::reverse_to_open;
 use super::set_lamp;
 use super::wait_interruptible;
+use super::GatePins;
 
 pub async fn close_gate(pins: &mut GatePins) -> Result<u8> {
     if pins.closed_sensor.is_low() {
@@ -33,11 +33,11 @@ pub async fn close_gate(pins: &mut GatePins) -> Result<u8> {
     state::set_status_code(pure::ST_CLOSING);
     set_lamp(pins, false, true)?;
 
-    if let Some(cmd) = pulse_interruptible(&mut pins.close_relay, pulse_ms()).await? {
-        return Ok(cmd);
+    if let Some(command) = pulse_interruptible(&mut pins.close_relay, pulse_ms()).await? {
+        return Ok(command);
     }
-    if let Some(cmd) = wait_interruptible(grace_ms()).await? {
-        return Ok(cmd);
+    if let Some(command) = wait_interruptible(grace_ms()).await? {
+        return Ok(command);
     }
 
     let timeout_ms = motion_timeout_ms();
@@ -54,9 +54,9 @@ pub async fn close_gate(pins: &mut GatePins) -> Result<u8> {
             warn!("Obstacle during closing, reversing to open");
             return reverse_to_open(pins).await;
         }
-        let cmd = state::take_command();
-        if cmd != CMD_NONE {
-            return Ok(cmd);
+        let command = state::take_command();
+        if command != CMD_NONE {
+            return Ok(command);
         }
         Timer::after(TimeDuration::from_millis(SENSOR_POLL_MS)).await;
         elapsed += SENSOR_POLL_MS;

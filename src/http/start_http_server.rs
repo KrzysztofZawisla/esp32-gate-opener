@@ -13,11 +13,11 @@ use super::check_auth;
 use super::handle_config_update;
 
 pub fn start_http_server() -> Result<EspHttpServer<'static>> {
-    let config = HttpConfig {
+    let configuration = HttpConfig {
         http_port: LISTEN_PORT,
         ..Default::default()
     };
-    let mut server = EspHttpServer::new(&config)?;
+    let mut server = EspHttpServer::new(&configuration)?;
 
     server.fn_handler("/open", Method::Post, |req| -> Result<(), EspIOError> {
         if !check_auth(&req) {
@@ -74,8 +74,8 @@ pub fn start_http_server() -> Result<EspHttpServer<'static>> {
             req.into_status_response(401)?;
         } else {
             let result = handle_config_update(&req);
-            if let Err(e) = &result {
-                log::warn!("Failed to update config: {e}");
+            if let Err(error) = &result {
+                log::warn!("Failed to update config: {error}");
             }
             let _ = match result {
                 Ok(()) => req.into_ok_response()?,
@@ -89,15 +89,13 @@ pub fn start_http_server() -> Result<EspHttpServer<'static>> {
         if !check_auth(&req) {
             return req.into_status_response(401).map(|_| ());
         }
-        let mut req = req;
-        let result = {
-            ota::flash_ota(&mut |out: &mut [u8]| req.read(out))
-        };
+        let mut request = req;
+        let result = ota::flash_ota(&mut |output: &mut [u8]| request.read(output));
         match result {
             Ok(()) => {}
-            Err(e) => {
-                error!("OTA failed: {e}");
-                let _ = req.into_status_response(500);
+            Err(error) => {
+                error!("OTA failed: {error}");
+                let _ = request.into_status_response(500);
             }
         }
         Ok(())
