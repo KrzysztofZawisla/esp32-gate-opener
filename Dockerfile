@@ -18,7 +18,7 @@ WORKDIR /app
 # recompiling the whole tree on every push.
 COPY .cargo/. ./.cargo/
 COPY Cargo.toml Cargo.lock build.rs rust-toolchain.toml sdkconfig.defaults partitions.csv ./
-RUN mkdir -p src && : > src/lib.rs
+RUN mkdir -p src && : > src/lib.rs && : > src/main.rs
 RUN bash -c "source \$IDF_PATH/export.sh && cargo build --release --lib"
 
 # The real sources (lib.rs above is overwritten here); only this crate's own
