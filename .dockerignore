@@ -1,0 +1,13 @@
+target
+.git
+.embuild
+README.md
+*.log
+node_modules
+types
+scripts
+.github
+package.json
+pnpm-lock.yaml
+tsconfig.json
+.gitleaks.toml

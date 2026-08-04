@@ -1,0 +1,27 @@
+# Custom partition table with two OTA slots (required for OTA updates).
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# Enable app rollback: if the new firmware does not confirm itself, the
+# bootloader reverts to the previous slot on the next boot.
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+
+# Single app slot in flash would not work for OTA; make sure the image has room.
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+
+# TLS: bundle the default Mozilla root certificates so the MQTT client can
+# validate brokers over `mqtts://` (e.g. Home Assistant's 8883 port).
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=y
+
+# Watchdog: this is a 24/7 device; if the scheduler wedges (a task stops
+# yielding, or a panic leaves the idle task starved) the SoC must reset itself
+# instead of silently hanging. The task watchdog supervises the two idle tasks.
+CONFIG_ESP_TASK_WDT_TIMEOUT_S=10
+CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU0=y
+CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU1=y
+CONFIG_ESP_TASK_WDT_CHECK_OTHER_TASKS=n
+
+# SNTP: allow the full four NTP pool servers from esp-idf-svc's default list so
+# the first sync is fast and resilient.
+CONFIG_LWIP_SNTP_MAX_SERVERS=4

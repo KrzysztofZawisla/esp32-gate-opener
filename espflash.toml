@@ -1,0 +1,11 @@
+# espflash configuration — used by `espflash flash` and `cargo run --release`
+# (see the `runner` entry in `.cargo/config.toml`).
+#
+# Flash the two-OTA partition table so OTA updates work. The `otadata` partition
+# is erased on every flash (`--erase-parts otadata` in the runner) so the
+# bootloader deterministically boots slot `ota_0` after a USB reflash.
+#
+# NOTE: schema changed in espflash 4.x — partition/bootloader keys live under
+# `[idf_format_args]` (alias `[idf]`), and partition erasing moved to the CLI.
+[idf_format_args]
+partition_table = "./partitions.csv"
