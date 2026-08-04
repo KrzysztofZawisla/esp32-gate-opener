@@ -81,11 +81,19 @@ jobs:
         uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: Extract firmware ELF from image
         run: |
           docker create --name gate-bin esp32-gate-opener
           docker cp gate-bin:/esp32-gate-opener target/xtensa-esp32-espidf/release/esp32-gate-opener
           docker rm gate-bin
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Install Node dependencies for size gate
+        run: pnpm install --frozen-lockfile
       - name: Enforce firmware size budget
         run: deno run --allow-read scripts/check-size.ts
   secrets-scan:

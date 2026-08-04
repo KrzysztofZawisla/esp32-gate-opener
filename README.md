@@ -706,7 +706,10 @@ cargo deny check licenses         # license compliance (permissive only)
 The TypeScript tooling is installed with `pnpm install` and checked against the
 generated Deno type declarations. The `@std/*` packages used by the tests come
 from [jsr.io](https://jsr.io) via the JSR npm-compatibility registry
-(`@jsr:registry=https://npm.jsr.io` in `.npmrc`), so pnpm — not Deno — installs them:
+(`@jsr:registry=https://npm.jsr.io` in `.npmrc`) and are installed by pnpm into
+`node_modules`. Deno uses that `node_modules` directly
+(`"nodeModulesDir": "manual"` in `deno.json`, i.e. bring-your-own-node_modules),
+so pnpm — not Deno — is the only package installer:
 
 ```
 pnpm typecheck                               # tsc --noEmit (TypeScript 7)
