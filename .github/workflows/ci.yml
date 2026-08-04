@@ -64,6 +64,14 @@ jobs:
         run: pnpm typecheck
       - name: Lint, format and test TS scripts
         run: deno lint scripts && deno fmt --check scripts && deno test scripts
+  docker-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint Dockerfile with Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
   esp32-build:
     runs-on: ubuntu-latest
     steps:
@@ -89,7 +97,7 @@ jobs:
           node-version: 22
       - name: Extract firmware ELF from image
         run: |
-          docker create --name gate-bin esp32-gate-opener
+          docker create --name gate-bin esp32-gate-opener /bin/true
           docker cp gate-bin:/esp32-gate-opener target/xtensa-esp32-espidf/release/esp32-gate-opener
           docker rm gate-bin
       - name: Enable Corepack
