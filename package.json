@@ -1,35 +1,39 @@
 {
   "name": "esp32-gate-opener-clone",
   "version": "1.0.0",
-  "description": "Build/flash/test helpers for the ESP32 gate opener firmware (Rust + ESP-IDF).",
   "private": true,
-  "scripts": {
-    "build": "cargo build --release",
-    "check": "cargo check",
-    "flash": "cargo run --release",
-    "run": "npm run flash",
-    "monitor": "espflash monitor",
-    "postinstall": "deno types > types/deno.d.ts",
-    "size": "deno run --allow-read scripts/check-size.ts",
-    "test:size": "deno test scripts",
-    "secrets": "gitleaks detect --source .",
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint --no-config-lookup -c cli-eslintrc.js --fix --cache -f unix \"scripts/**/*.ts\"",
-    "format": "prettier --write scripts",
-    "format:check": "prettier --check scripts",
-    "test": "cargo test --lib",
-    "ota:image": "cargo build --release && espflash save-image --chip esp32 target/xtensa-esp32-espidf/release/esp32-gate-opener gate.bin"
-  },
+  "description": "Build/flash/test helpers for the ESP32 gate opener firmware (Rust + ESP-IDF).",
   "keywords": [
     "esp32",
     "esp-idf",
     "gate-opener"
   ],
   "license": "ISC",
-  "packageManager": "pnpm@10.30.1",
+  "scripts": {
+    "build": "cargo build --release",
+    "check": "cargo check",
+    "flash": "cargo run --release",
+    "format": "prettier --write scripts",
+    "format:check": "prettier --check scripts",
+    "format:package": "sort-package-json",
+    "format:package:check": "sort-package-json --check",
+    "preinstall": "pnpm dlx only-allow pnpm",
+    "postinstall": "deno types > types/deno.d.ts",
+    "lint": "eslint --no-config-lookup -c cli-eslintrc.js --fix --cache -f unix \"scripts/**/*.ts\"",
+    "monitor": "espflash monitor",
+    "ota:image": "cargo build --release && espflash save-image --chip esp32 target/xtensa-esp32-espidf/release/esp32-gate-opener gate.bin",
+    "prepare": "husky",
+    "run": "npm run flash",
+    "secrets": "gitleaks detect --source .",
+    "size": "deno run --allow-read scripts/check-size.ts",
+    "test": "cargo test --lib",
+    "test:size": "deno test scripts",
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
     "@eslint/js": "^10.0.1",
     "@jsr/std__assert": "^1.0.19",
+    "@total-typescript/ts-reset": "^0.6.1",
     "@types/lodash": "^4.17.25",
     "@types/node": "^26.1.2",
     "@typescript-eslint/parser": "^8.66.0",
@@ -38,12 +42,19 @@
     "eslint-formatter-unix": "^9.0.1",
     "eslint-plugin-prettier": "^5.5.6",
     "eslint-plugin-sonarjs": "^4.2.0",
+    "husky": "^9.1.7",
     "lodash": "^4.18.1",
     "prettier": "^3.9.6",
     "prettier-plugin-organize-imports": "^4.3.0",
+    "sort-package-json": "^4.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.66.0",
     "zod": "^4.4.3"
+  },
+  "packageManager": "pnpm@10.30.1",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=9.15.0"
   }
 }

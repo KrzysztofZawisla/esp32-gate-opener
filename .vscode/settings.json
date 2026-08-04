@@ -1,0 +1,6 @@
+{
+  "cSpell.words": ["esp32", "esp-idf", "gitleaks", "prettierrc", "fpga"],
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "eslint.useFlatConfig": true
+}
