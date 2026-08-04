@@ -1,15 +1,12 @@
-use core::borrow::Borrow;
 use std::sync::OnceLock;
 
 use anyhow::Result;
 use embassy_futures::join::join;
-use embassy_time::Duration as TimeDuration;
-use embassy_time::{Instant, Timer};
 use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration as WifiConfiguration};
 use esp_idf_hal::adc::attenuation::DB_11;
 use esp_idf_hal::adc::oneshot::config::AdcChannelConfig;
 use esp_idf_hal::adc::oneshot::{AdcChannelDriver, AdcDriver};
-use esp_idf_hal::gpio::{ADCPin, AnyIOPin, AnyOutputPin, PinDriver, Pull};
+use esp_idf_hal::gpio::{AnyIOPin, AnyOutputPin, PinDriver, Pull};
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::task::block_on;
 use esp_idf_svc::eventloop::EspSystemEventLoop;
@@ -27,10 +24,11 @@ mod http;
 mod ota;
 mod pure;
 mod state;
+mod tasks;
 
 use config::*;
-use pure::Command;
-use state::{battery_pct, refresh_status, take_command};
+use state::refresh_status;
+use tasks::{gate_task, telemetry_task};
 
 // Keep the SNTP client alive for the whole run; dropping it would stop time
 // synchronization (and free the underlying task).
@@ -140,78 +138,4 @@ fn main() -> Result<()> {
 
     drop(server);
     Ok(())
-}
-
-async fn gate_task(pins: &mut gate::GatePins) {
-    loop {
-        refresh_status(&pins.open_sensor, &pins.closed_sensor);
-        let command = take_command();
-        if command != Command::None {
-            if battery_pct() < config_storage::battery_min_pct() {
-                warn!(
-                    "Battery too low ({}%), refusing to move the gate",
-                    battery_pct()
-                );
-                state::set_fault(pure::Fault::BATTERY);
-                homeassistant::publish_fault();
-                continue;
-            }
-            state::clear_fault(pure::Fault::BATTERY);
-            let mut current = command;
-            loop {
-                current = gate::handle_command(current, pins)
-                    .await
-                    .unwrap_or(Command::None);
-                refresh_status(&pins.open_sensor, &pins.closed_sensor);
-                homeassistant::publish_obstacle();
-                if current == Command::None {
-                    homeassistant::publish_status();
-                    homeassistant::publish_fault();
-                    break;
-                }
-            }
-        }
-        Timer::after(TimeDuration::from_millis(SENSOR_POLL_MS)).await;
-    }
-}
-
-async fn telemetry_task<AdcPin, AdcModule>(
-    wifi: &mut BlockingWifi<EspWifi<'static>>,
-    battery_channel: &mut AdcChannelDriver<'static, AdcPin, AdcModule>,
-) where
-    AdcPin: ADCPin,
-    AdcModule: Borrow<AdcDriver<'static, AdcPin::Adc>>,
-{
-    const RECONNECT_INTERVAL_S: u64 = 5;
-    let mut last_periodic = Instant::now();
-    let mut last_reconnect = Instant::now();
-    loop {
-        match wifi.is_connected() {
-            Ok(true) => {}
-            _ => {
-                if Instant::now().saturating_duration_since(last_reconnect)
-                    >= TimeDuration::from_secs(RECONNECT_INTERVAL_S)
-                {
-                    last_reconnect = Instant::now();
-                    warn!("WiFi connection lost, reconnecting");
-                    let _ = wifi.disconnect();
-                    let _ = wifi.connect();
-                    let _ = wifi.wait_netif_up();
-                }
-            }
-        }
-
-        if state::mqtt_connected() {
-            let interval = TimeDuration::from_secs(config_storage::telemetry_interval_s());
-            let periodic_due = Instant::now().saturating_duration_since(last_periodic) >= interval;
-            if periodic_due {
-                last_periodic = Instant::now();
-            }
-            if state::take_battery_publish_request() || periodic_due {
-                homeassistant::publish_battery(battery_channel);
-            }
-        }
-
-        Timer::after(TimeDuration::from_millis(SENSOR_POLL_MS)).await;
-    }
 }
