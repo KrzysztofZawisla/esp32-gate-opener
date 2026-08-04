@@ -67,6 +67,12 @@ const config: (Linter.Config | Linter.BaseConfig)[] = defineConfig(
       "@typescript-eslint/no-require-imports": "off",
     },
   },
+  {
+    files: ["**/*.test.ts"],
+    rules: {
+      "sonarjs/no-empty-test-file": "off",
+    },
+  },
 );
 
 /** Can't be changed to export default due to TypeScript & ESLint limitations */

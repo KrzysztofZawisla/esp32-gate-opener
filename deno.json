@@ -5,7 +5,6 @@
   },
   "imports": {
     "@jsr/std__assert": "npm:@jsr/std__assert@^1.0.19",
-    "@jsr/std__testing/bdd": "npm:@jsr/std__testing@^1.0.20/bdd",
     "lodash/": "npm:lodash@^4.17.21/",
     "zod": "npm:zod@^4.4.3"
   }

@@ -1,5 +1,4 @@
 import { assertEquals, assertThrows } from "@jsr/std__assert";
-import { describe, it } from "@jsr/std__testing/bdd";
 import { DEFAULT_BUDGET, parseBudget } from "./check-size.ts";
 import { makeReader, sectionSizes } from "./elf.ts";
 
@@ -139,78 +138,71 @@ const buildElf32 = (
   return elf;
 };
 
-describe("makeReader", () => {
-  it("reads big-endian integers", () => {
-    const data = new Uint8Array([
-      0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0,
-    ]);
-    const reader = makeReader({ data, littleEndian: false });
-    assertEquals(reader.u16(0), 0x1234);
-    assertEquals(reader.u32(0), 0x12345678);
-    assertEquals(reader.u64(0), 0x123456789abcdef0n);
-  });
-
-  it("reads little-endian integers", () => {
-    const data = new Uint8Array([
-      0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0,
-    ]);
-    const reader = makeReader({ data, littleEndian: true });
-    assertEquals(reader.u16(0), 0x3412);
-    assertEquals(reader.u32(0), 0x78563412);
-    assertEquals(reader.u64(0), 0xf0debc9a78563412n);
-  });
+Deno.test("makeReader reads big-endian integers", () => {
+  const data = new Uint8Array([0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0]);
+  const reader = makeReader({ data, littleEndian: false });
+  assertEquals(reader.u16(0), 0x1234);
+  assertEquals(reader.u32(0), 0x12345678);
+  assertEquals(reader.u64(0), 0x123456789abcdef0n);
 });
 
-describe("sectionSizes", () => {
-  it("returns sizes only for the requested sections", () => {
-    const elf = buildElf32([
-      { name: ".flash.text", size: 100 },
-      { name: ".flash.rodata", size: 250 },
-      { name: ".debug", size: 9999 },
-    ]);
-    const sizes = sectionSizes({
-      data: elf,
-      sections: [".flash.text", ".flash.rodata"],
-    });
-    assertEquals(sizes.get(".flash.text"), 100);
-    assertEquals(sizes.get(".flash.rodata"), 250);
-    assertEquals(sizes.has(".debug"), false);
-  });
-
-  it("omits a requested section that does not exist", () => {
-    const elf = buildElf32([{ name: ".flash.text", size: 42 }]);
-    const sizes = sectionSizes({
-      data: elf,
-      sections: [".flash.text", ".flash.rodata"],
-    });
-    assertEquals(sizes.get(".flash.text"), 42);
-    assertEquals(sizes.has(".flash.rodata"), false);
-  });
-
-  it("handles an empty section list", () => {
-    const elf = buildElf32([{ name: ".flash.text", size: 42 }]);
-    assertEquals(sectionSizes({ data: elf, sections: [] }).size, 0);
-  });
+Deno.test("makeReader reads little-endian integers", () => {
+  const data = new Uint8Array([0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0]);
+  const reader = makeReader({ data, littleEndian: true });
+  assertEquals(reader.u16(0), 0x3412);
+  assertEquals(reader.u32(0), 0x78563412);
+  assertEquals(reader.u64(0), 0xf0debc9a78563412n);
 });
 
-describe("parseBudget", () => {
-  it("falls back to the default budget when no argument is given", () => {
+Deno.test("sectionSizes returns sizes only for the requested sections", () => {
+  const elf = buildElf32([
+    { name: ".flash.text", size: 100 },
+    { name: ".flash.rodata", size: 250 },
+    { name: ".debug", size: 9999 },
+  ]);
+  const sizes = sectionSizes({
+    data: elf,
+    sections: [".flash.text", ".flash.rodata"],
+  });
+  assertEquals(sizes.get(".flash.text"), 100);
+  assertEquals(sizes.get(".flash.rodata"), 250);
+  assertEquals(sizes.has(".debug"), false);
+});
+
+Deno.test("sectionSizes omits a requested section that does not exist", () => {
+  const elf = buildElf32([{ name: ".flash.text", size: 42 }]);
+  const sizes = sectionSizes({
+    data: elf,
+    sections: [".flash.text", ".flash.rodata"],
+  });
+  assertEquals(sizes.get(".flash.text"), 42);
+  assertEquals(sizes.has(".flash.rodata"), false);
+});
+
+Deno.test("sectionSizes handles an empty section list", () => {
+  const elf = buildElf32([{ name: ".flash.text", size: 42 }]);
+  assertEquals(sectionSizes({ data: elf, sections: [] }).size, 0);
+});
+
+Deno.test(
+  "parseBudget falls back to the default budget when no argument is given",
+  () => {
     assertEquals(parseBudget(undefined), DEFAULT_BUDGET);
-  });
+  },
+);
 
-  it("parses a valid budget", () => {
-    assertEquals(parseBudget("1500000"), 1_500_000);
-  });
+Deno.test("parseBudget parses a valid budget", () => {
+  assertEquals(parseBudget("1500000"), 1_500_000);
+});
 
-  it("rejects non-numeric input", () => {
-    assertThrows(() => {
-      parseBudget("not-a-number");
-    });
+Deno.test("parseBudget rejects non-numeric input", () => {
+  assertThrows(() => {
+    parseBudget("not-a-number");
   });
+});
 
-  it("rejects negative budgets", () => {
-    assertThrows(() => {
-      parseBudget("-1000");
-    });
+Deno.test("parseBudget rejects negative budgets", () => {
+  assertThrows(() => {
+    parseBudget("-1000");
   });
 });
