@@ -97,6 +97,7 @@ jobs:
           node-version: 22
       - name: Extract firmware ELF from image
         run: |
+          mkdir -p target/xtensa-esp32-espidf/release
           docker create --name gate-bin esp32-gate-opener /bin/true
           docker cp gate-bin:/esp32-gate-opener target/xtensa-esp32-espidf/release/esp32-gate-opener
           docker rm gate-bin
