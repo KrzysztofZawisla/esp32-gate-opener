@@ -6,7 +6,7 @@ ENV IDF_TOOLS_PATH=/opt/esp
 ENV ESP_IDF_TOOLS_INSTALL_DIR=fromenv
 ENV PATH=/root/.cargo/bin:${PATH}
 RUN curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
-RUN curl -sSf https://raw.githubusercontent.com/esp-rs/espup/main/espup/install.sh | sh && \
+RUN cargo install espup --locked && \
     espup install --toolchain-version 1.90.0.0 --targets esp32 --std && \
     rustup default esp
 RUN cargo install ldproxy --locked

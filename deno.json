@@ -1,5 +1,8 @@
 {
   "nodeModulesDir": "manual",
+  "compilerOptions": {
+    "lib": ["deno.window"]
+  },
   "imports": {
     "@jsr/std__assert": "npm:@jsr/std__assert@^1.0.19",
     "@jsr/std__testing/bdd": "npm:@jsr/std__testing@^1.0.20/bdd",
