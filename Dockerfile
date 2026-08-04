@@ -5,6 +5,8 @@ ENV IDF_PATH=/opt/esp/idf
 ENV IDF_TOOLS_PATH=/opt/esp
 ENV ESP_IDF_TOOLS_INSTALL_DIR=fromenv
 ENV PATH=/root/.cargo/bin:${PATH}
+RUN apt-get update && apt-get install -y --no-install-recommends libclang-dev && \
+    rm -rf /var/lib/apt/lists/*
 RUN curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
 RUN cargo install espup --locked && \
     espup install --toolchain-version 1.90.0.0 --targets esp32 --std && \
