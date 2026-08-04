@@ -5,6 +5,7 @@ ENV IDF_PATH=/opt/esp/idf
 ENV IDF_TOOLS_PATH=/opt/esp
 ENV ESP_IDF_TOOLS_INSTALL_DIR=fromenv
 ENV PATH=/root/.cargo/bin:${PATH}
+ENV CMAKE_BUILD_PARALLEL_LEVEL=2
 RUN apt-get update && apt-get install -y --no-install-recommends libclang-dev && \
     rm -rf /var/lib/apt/lists/*
 RUN curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
@@ -21,13 +22,13 @@ WORKDIR /app
 COPY .cargo/. ./.cargo/
 COPY Cargo.toml Cargo.lock build.rs rust-toolchain.toml sdkconfig.defaults partitions.csv ./
 RUN mkdir -p src && : > src/lib.rs && : > src/main.rs
-RUN bash -c "source \$IDF_PATH/export.sh && cargo build --release --lib"
+RUN bash -c "source \$IDF_PATH/export.sh && cargo build --release --lib -j 4"
 
 # The real sources (lib.rs above is overwritten here); only this crate's own
 # code recompiles from this layer on. espup bundles clippy; it is already
 # present in the toolchain. The firmware size budget is enforced separately in
 # CI via scripts/check-size.ts.
 COPY . .
-RUN bash -c "source \$IDF_PATH/export.sh && cargo build --release && cargo clippy --release -- -D warnings"
+RUN bash -c "source \$IDF_PATH/export.sh && cargo build --release -j 4 && cargo clippy --release -j 4 -- -D warnings"
 FROM scratch AS release
 COPY --from=build /app/target/xtensa-esp32-espidf/release/esp32-gate-opener /esp32-gate-opener
