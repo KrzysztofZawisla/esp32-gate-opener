@@ -704,11 +704,14 @@ cargo deny check licenses         # license compliance (permissive only)
 ```
 
 The TypeScript tooling is installed with `pnpm install` and checked against the
-generated Deno type declarations:
+generated Deno type declarations. The `@std/*` packages used by the tests come
+from [jsr.io](https://jsr.io) via the JSR npm-compatibility registry
+(`@jsr:registry=https://npm.jsr.io` in `.npmrc`), so pnpm — not Deno — installs them:
 
 ```
 pnpm typecheck                               # tsc --noEmit (TypeScript 7)
 deno lint scripts && deno fmt --check scripts  # style checks
+deno test scripts                            # size-gate parser/budget unit tests
 pnpm size                                    # enforce the firmware size budget
 pnpm secrets                                 # scan git history for leaked credentials
 ```
@@ -763,7 +766,9 @@ esp32-gate-opener/
 ├── espflash.toml          espflash flash settings (partition table)
 ├── deny.toml              cargo-deny license allowlist (permissive licenses only)
 ├── .gitleaks.toml         Credential-scan config (extends defaults + allowlist)
-├── scripts/check-size.ts  Firmware size gate (parses the ELF, enforces the budget)
+├── scripts/elf.ts           ELF section-table reader (parser, unit-tested, no Deno I/O)
+├── scripts/check-size.ts    Firmware size gate (parses the ELF, enforces the budget)
+├── scripts/check-size.test.ts  Parser/budget unit tests (`@std/assert` + `@std/testing`)
 ├── types/                 Generated Deno type declarations (`deno.d.ts`, gitignored)
 ├── tsconfig.json          TypeScript config (`tsc --noEmit`)
 ├── package.json           pnpm scripts: typecheck / size / test / ota:image …

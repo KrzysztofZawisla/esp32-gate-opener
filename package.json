@@ -11,6 +11,7 @@
     "monitor": "espflash monitor",
     "postinstall": "deno types > types/deno.d.ts",
     "size": "deno run --allow-read scripts/check-size.ts",
+    "test:size": "deno test scripts",
     "secrets": "gitleaks detect --source .",
     "typecheck": "tsc --noEmit",
     "test": "cargo test --lib",
@@ -24,6 +25,11 @@
   "license": "ISC",
   "packageManager": "pnpm@10.30.1",
   "dependencies": {
-    "typescript": "^7.0.2"
+    "@jsr/std__assert": "^1.0.19",
+    "@jsr/std__testing": "^1.0.20",
+    "@types/lodash": "^4.17.25",
+    "lodash": "^4.18.1",
+    "typescript": "^7.0.2",
+    "zod": "^4.4.3"
   }
 }

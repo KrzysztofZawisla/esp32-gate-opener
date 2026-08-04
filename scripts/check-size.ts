@@ -7,85 +7,32 @@
 //
 // Usage: deno run --allow-read scripts/check-size.ts [max_flash_bytes]
 
+import map from "lodash/map.js";
+import sumBy from "lodash/sumBy.js";
+import { z as zod } from "zod";
+import { sectionSizes } from "./elf.ts";
+
 const ELF_PATH = "target/xtensa-esp32-espidf/release/esp32-gate-opener";
-const DEFAULT_BUDGET = 1_400_000;
+export const DEFAULT_BUDGET = 1_400_000;
 const FLASH_SECTIONS = [".flash.text", ".flash.rodata"] as const;
 
-type Readable = {
-  u16: (offset: number) => number;
-  u32: (offset: number) => number;
-  u64: (offset: number) => bigint;
-};
+const budgetSchema = zod.number().int().positive();
 
-const makeReader = (data: Uint8Array, littleEndian: boolean): Readable => {
-  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-  return {
-    u16: (offset) => view.getUint16(offset, littleEndian),
-    u32: (offset) => view.getUint32(offset, littleEndian),
-    u64: (offset) => view.getBigUint64(offset, littleEndian),
-  };
-};
-
-const sectionSizes = (data: Uint8Array): Map<string, number> => {
-  const elfClass = data[4]; // 1 = 32-bit, 2 = 64-bit
-  const littleEndian = data[5] === 1;
-  const byteReader = makeReader(data, littleEndian);
-  const is64 = elfClass === 2;
-
-  const sectionHeaderOffset = is64
-    ? Number(byteReader.u64(40))
-    : byteReader.u32(32);
-  const sectionHeaderEntrySize = byteReader.u16(46);
-  const sectionHeaderCount = byteReader.u16(48);
-  const sectionHeaderStringTableIndex = byteReader.u16(50);
-
-  const sectionHeaderStringTableOffset = is64
-    ? Number(
-      byteReader.u64(
-        sectionHeaderOffset +
-          sectionHeaderStringTableIndex * sectionHeaderEntrySize +
-          24,
-      ),
-    )
-    : byteReader.u32(
-      sectionHeaderOffset +
-        sectionHeaderStringTableIndex * sectionHeaderEntrySize +
-        16,
-    );
-
-  const decoder = new TextDecoder();
-  const sectionName = (nameOffset: number): string => {
-    let end = nameOffset;
-    while (data[sectionHeaderStringTableOffset + end] !== 0) end += 1;
-    return decoder.decode(
-      data.subarray(
-        sectionHeaderStringTableOffset + nameOffset,
-        sectionHeaderStringTableOffset + end,
-      ),
-    );
-  };
-
-  const sizes = new Map<string, number>();
-  for (let index = 0; index < sectionHeaderCount; index += 1) {
-    const base = sectionHeaderOffset + index * sectionHeaderEntrySize;
-    const nameOffset = byteReader.u32(base);
-    const size = is64
-      ? Number(byteReader.u64(base + 32))
-      : byteReader.u32(base + 20);
-    const name = sectionName(nameOffset);
-    if ((FLASH_SECTIONS as readonly string[]).includes(name)) {
-      sizes.set(name, size);
-    }
+export const parseBudget = (raw: string | undefined): number => {
+  const parsed = raw === undefined ? DEFAULT_BUDGET : Number.parseInt(raw, 10);
+  const result = budgetSchema.safeParse(parsed);
+  if (!result.success) {
+    throw new Error(`invalid budget: ${raw ?? String(DEFAULT_BUDGET)}`);
   }
-  return sizes;
+  return result.data;
 };
 
 const main = (): void => {
-  const budget = Deno.args[0]
-    ? Number.parseInt(Deno.args[0], 10)
-    : DEFAULT_BUDGET;
-  if (!Number.isFinite(budget)) {
-    console.error(`error: invalid budget: ${Deno.args[0]}`);
+  let budget: number;
+  try {
+    budget = parseBudget(Deno.args[0]);
+  } catch (error) {
+    console.error(`error: ${(error as Error).message}`);
     Deno.exit(1);
   }
 
@@ -97,13 +44,14 @@ const main = (): void => {
     Deno.exit(1);
   }
 
-  const sizes = sectionSizes(data);
-  const total = FLASH_SECTIONS.reduce(
-    (accumulator, section) => accumulator + (sizes.get(section) ?? 0),
-    0,
+  const sizes = sectionSizes(data, FLASH_SECTIONS);
+  const total = sumBy(
+    FLASH_SECTIONS as readonly string[],
+    (section: string) => sizes.get(section) ?? 0,
   );
-  const parts = FLASH_SECTIONS.map(
-    (section) => `${section}=${sizes.get(section) ?? 0}`,
+  const parts = map(
+    FLASH_SECTIONS as readonly string[],
+    (section: string) => `${section}=${sizes.get(section) ?? 0}`,
   ).join(" ");
   console.log(`${parts} total=${total} budget=${budget}`);
 
@@ -116,4 +64,6 @@ const main = (): void => {
   console.log("size OK");
 };
 
-main();
+if (import.meta.main) {
+  main();
+}
