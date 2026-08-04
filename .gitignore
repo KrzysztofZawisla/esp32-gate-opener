@@ -27,3 +27,6 @@ node_modules/
 
 # Generated Deno global type declarations (regenerated on `postinstall`)
 types/deno.d.ts
+
+# ESLint cache file (written by `pnpm lint`)
+.eslintcache

@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "verbatimModuleSyntax": false,
+    "allowImportingTsExtensions": false
+  },
+  "include": [
+    "scripts/**/*.ts",
+    "types/**/*.d.ts",
+    "./.eslintrc.ts",
+    "./cli-eslintrc.js"
+  ]
+}

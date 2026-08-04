@@ -8,25 +8,38 @@ export type Readable = {
   u64: (offset: number) => bigint;
 };
 
-export const makeReader = (
-  data: Uint8Array,
-  littleEndian: boolean,
-): Readable => {
+export type ReaderInput = {
+  data: Uint8Array;
+  littleEndian: boolean;
+};
+
+export const makeReader = ({ data, littleEndian }: ReaderInput): Readable => {
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
   return {
-    u16: (offset) => view.getUint16(offset, littleEndian),
-    u32: (offset) => view.getUint32(offset, littleEndian),
-    u64: (offset) => view.getBigUint64(offset, littleEndian),
+    u16: (offset) => {
+      return view.getUint16(offset, littleEndian);
+    },
+    u32: (offset) => {
+      return view.getUint32(offset, littleEndian);
+    },
+    u64: (offset) => {
+      return view.getBigUint64(offset, littleEndian);
+    },
   };
 };
 
-export const sectionSizes = (
-  data: Uint8Array,
-  sections: readonly string[],
-): Map<string, number> => {
+export type SectionSizesInput = {
+  data: Uint8Array;
+  sections: readonly string[];
+};
+
+export const sectionSizes = ({
+  data,
+  sections,
+}: SectionSizesInput): Map<string, number> => {
   const elfClass = data[4]; // 1 = 32-bit, 2 = 64-bit
   const littleEndian = data[5] === 1;
-  const byteReader = makeReader(data, littleEndian);
+  const byteReader = makeReader({ data, littleEndian });
   const is64 = elfClass === 2;
 
   const sectionHeaderOffset = is64
@@ -38,17 +51,17 @@ export const sectionSizes = (
 
   const sectionHeaderStringTableOffset = is64
     ? Number(
-      byteReader.u64(
+        byteReader.u64(
+          sectionHeaderOffset +
+            sectionHeaderStringTableIndex * sectionHeaderEntrySize +
+            24,
+        ),
+      )
+    : byteReader.u32(
         sectionHeaderOffset +
           sectionHeaderStringTableIndex * sectionHeaderEntrySize +
-          24,
-      ),
-    )
-    : byteReader.u32(
-      sectionHeaderOffset +
-        sectionHeaderStringTableIndex * sectionHeaderEntrySize +
-        16,
-    );
+          16,
+      );
 
   const decoder = new TextDecoder();
   const sectionName = (nameOffset: number): string => {

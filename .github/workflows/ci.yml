@@ -63,7 +63,7 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
       - name: Lint, format and test TS scripts
-        run: deno lint scripts && deno fmt --check scripts && deno test scripts
+        run: pnpm lint && pnpm format:check && deno test scripts
   docker-lint:
     runs-on: ubuntu-latest
     steps:

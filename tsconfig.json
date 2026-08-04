@@ -9,5 +9,15 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["scripts/**/*.ts", "types/**/*.d.ts"]
+  "include": ["scripts/**/*.ts", "types/**/*.d.ts"],
+  "ts-node": {
+    "transpileOnly": true,
+    "compilerOptions": {
+      "module": "CommonJS",
+      "moduleResolution": "Node",
+      "esModuleInterop": true,
+      "skipLibCheck": true,
+      "allowImportingTsExtensions": false
+    }
+  }
 }

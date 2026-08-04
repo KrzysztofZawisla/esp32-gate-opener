@@ -1,28 +1,44 @@
 import { assertEquals, assertThrows } from "@jsr/std__assert";
 import { describe, it } from "@jsr/std__testing/bdd";
-import { makeReader, sectionSizes } from "./elf.ts";
 import { DEFAULT_BUDGET, parseBudget } from "./check-size.ts";
+import { makeReader, sectionSizes } from "./elf.ts";
 
-const writeU16 = (view: DataView, offset: number, value: number): void =>
+type WriterInput = {
+  view: DataView;
+  offset: number;
+  value: number;
+};
+
+const writeU16 = ({ view, offset, value }: WriterInput): void => {
   view.setUint16(offset, value, true);
-const writeU32 = (view: DataView, offset: number, value: number): void =>
+};
+const writeU32 = ({ view, offset, value }: WriterInput): void => {
   view.setUint32(offset, value, true);
+};
 
 // Builds a minimal, valid 32-bit little-endian ELF whose section header table
 // lists the given sections plus the required null section and ".shstrtab".
 const buildElf32 = (
   sections: Array<{ name: string; size: number }>,
 ): Uint8Array => {
-  const strtabNames = [...sections.map((section) => section.name), ".shstrtab"];
-  const strtab = new Uint8Array(
-    strtabNames.reduce((length, name) => length + name.length + 1, 0),
-  );
+  const strtabNames = [
+    ...sections.map((section) => {
+      return section.name;
+    }),
+    ".shstrtab",
+  ];
+  let totalLength = 0;
+  for (const name of strtabNames) {
+    totalLength += name.length + 1;
+  }
+  const strtab = new Uint8Array(totalLength);
+
   const nameOffsets = new Map<string, number>();
   let stringOffset = 0;
   for (const name of strtabNames) {
     nameOffsets.set(name, stringOffset);
-    for (let i = 0; i < name.length; i += 1) {
-      strtab[stringOffset + i] = name.charCodeAt(i);
+    for (let index = 0; index < name.length; index += 1) {
+      strtab[stringOffset + index] = name.charCodeAt(index);
     }
     stringOffset += name.length + 1;
   }
@@ -43,62 +59,82 @@ const buildElf32 = (
   elf[4] = 1; // 32-bit
   elf[5] = 1; // little-endian
   elf[6] = 1;
-  writeU16(view, 16, 2); // e_type: EXEC
-  writeU16(view, 18, 243); // e_machine: Xtensa
-  writeU32(view, 20, 1); // e_version
-  writeU32(view, 24, 0); // e_entry
-  writeU32(view, 28, 0); // e_phoff
-  writeU32(view, 32, sectionHeaderOffset); // e_shoff
-  writeU32(view, 36, 0); // e_flags
-  writeU16(view, 40, headerSize); // e_ehsize
-  writeU16(view, 44, 0); // e_phnum
-  writeU16(view, 46, sectionHeaderSize); // e_shentsize
-  writeU16(view, 48, sectionCount); // e_shnum
-  writeU16(view, 50, shstrtabIndex); // e_shstrndx
+  writeU16({ view, offset: 16, value: 2 }); // e_type: EXEC
+  writeU16({ view, offset: 18, value: 243 }); // e_machine: Xtensa
+  writeU32({ view, offset: 20, value: 1 }); // e_version
+  writeU32({ view, offset: 24, value: 0 }); // e_entry
+  writeU32({ view, offset: 28, value: 0 }); // e_phoff
+  writeU32({ view, offset: 32, value: sectionHeaderOffset }); // e_shoff
+  writeU32({ view, offset: 36, value: 0 }); // e_flags
+  writeU16({ view, offset: 40, value: headerSize }); // e_ehsize
+  writeU16({ view, offset: 44, value: 0 }); // e_phnum
+  writeU16({ view, offset: 46, value: sectionHeaderSize }); // e_shentsize
+  writeU16({ view, offset: 48, value: sectionCount }); // e_shnum
+  writeU16({ view, offset: 50, value: shstrtabIndex }); // e_shstrndx
 
   elf.set(strtab, shstrtabOffset);
 
-  const writeSectionHeader = (
-    index: number,
-    nameOffset: number,
-    type: number,
-    fileOffset: number,
-    size: number,
-  ): void => {
+  type SectionHeaderInput = {
+    index: number;
+    nameOffset: number;
+    type: number;
+    fileOffset: number;
+    size: number;
+  };
+  const writeSectionHeader = ({
+    index,
+    nameOffset,
+    type,
+    fileOffset,
+    size,
+  }: SectionHeaderInput): void => {
     const base = sectionHeaderOffset + index * sectionHeaderSize;
-    writeU32(view, base, nameOffset);
-    writeU32(view, base + 4, type);
-    writeU32(view, base + 8, 0); // sh_flags
-    writeU32(view, base + 12, 0); // sh_addr
-    writeU32(view, base + 16, fileOffset); // sh_offset
-    writeU32(view, base + 20, size); // sh_size
-    writeU32(view, base + 24, 0); // sh_link
-    writeU32(view, base + 28, 0); // sh_info
-    writeU32(view, base + 32, 0); // sh_addralign
-    writeU32(view, base + 36, 0); // sh_entsize
+    writeU32({ view, offset: base, value: nameOffset });
+    writeU32({ view, offset: base + 4, value: type });
+    writeU32({ view, offset: base + 8, value: 0 }); // sh_flags
+    writeU32({ view, offset: base + 12, value: 0 }); // sh_addr
+    writeU32({ view, offset: base + 16, value: fileOffset }); // sh_offset
+    writeU32({ view, offset: base + 20, value: size }); // sh_size
+    writeU32({ view, offset: base + 24, value: 0 }); // sh_link
+    writeU32({ view, offset: base + 28, value: 0 }); // sh_info
+    writeU32({ view, offset: base + 32, value: 0 }); // sh_addralign
+    writeU32({ view, offset: base + 36, value: 0 }); // sh_entsize
   };
 
-  writeSectionHeader(0, 0, 0, 0, 0);
+  writeSectionHeader({
+    index: 0,
+    nameOffset: 0,
+    type: 0,
+    fileOffset: 0,
+    size: 0,
+  });
 
-  sections.forEach((section, index) => {
+  for (let index = 0; index < sections.length; index += 1) {
+    const section = sections[index];
     const nameOffset = nameOffsets.get(section.name);
     if (nameOffset === undefined) {
       throw new Error(`missing name offset for ${section.name}`);
     }
-    writeSectionHeader(index + 1, nameOffset, 1, 0, section.size);
-  });
+    writeSectionHeader({
+      index: index + 1,
+      nameOffset,
+      type: 1,
+      fileOffset: 0,
+      size: section.size,
+    });
+  }
 
   const shstrtabNameOffset = nameOffsets.get(".shstrtab");
   if (shstrtabNameOffset === undefined) {
     throw new Error("missing .shstrtab name offset");
   }
-  writeSectionHeader(
-    shstrtabIndex,
-    shstrtabNameOffset,
-    3,
-    shstrtabOffset,
-    strtab.length,
-  );
+  writeSectionHeader({
+    index: shstrtabIndex,
+    nameOffset: shstrtabNameOffset,
+    type: 3,
+    fileOffset: shstrtabOffset,
+    size: strtab.length,
+  });
 
   return elf;
 };
@@ -106,16 +142,9 @@ const buildElf32 = (
 describe("makeReader", () => {
   it("reads big-endian integers", () => {
     const data = new Uint8Array([
-      0x12,
-      0x34,
-      0x56,
-      0x78,
-      0x9a,
-      0xbc,
-      0xde,
-      0xf0,
+      0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0,
     ]);
-    const reader = makeReader(data, false);
+    const reader = makeReader({ data, littleEndian: false });
     assertEquals(reader.u16(0), 0x1234);
     assertEquals(reader.u32(0), 0x12345678);
     assertEquals(reader.u64(0), 0x123456789abcdef0n);
@@ -123,16 +152,9 @@ describe("makeReader", () => {
 
   it("reads little-endian integers", () => {
     const data = new Uint8Array([
-      0x12,
-      0x34,
-      0x56,
-      0x78,
-      0x9a,
-      0xbc,
-      0xde,
-      0xf0,
+      0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0,
     ]);
-    const reader = makeReader(data, true);
+    const reader = makeReader({ data, littleEndian: true });
     assertEquals(reader.u16(0), 0x3412);
     assertEquals(reader.u32(0), 0x78563412);
     assertEquals(reader.u64(0), 0xf0debc9a78563412n);
@@ -146,7 +168,10 @@ describe("sectionSizes", () => {
       { name: ".flash.rodata", size: 250 },
       { name: ".debug", size: 9999 },
     ]);
-    const sizes = sectionSizes(elf, [".flash.text", ".flash.rodata"]);
+    const sizes = sectionSizes({
+      data: elf,
+      sections: [".flash.text", ".flash.rodata"],
+    });
     assertEquals(sizes.get(".flash.text"), 100);
     assertEquals(sizes.get(".flash.rodata"), 250);
     assertEquals(sizes.has(".debug"), false);
@@ -154,14 +179,17 @@ describe("sectionSizes", () => {
 
   it("omits a requested section that does not exist", () => {
     const elf = buildElf32([{ name: ".flash.text", size: 42 }]);
-    const sizes = sectionSizes(elf, [".flash.text", ".flash.rodata"]);
+    const sizes = sectionSizes({
+      data: elf,
+      sections: [".flash.text", ".flash.rodata"],
+    });
     assertEquals(sizes.get(".flash.text"), 42);
     assertEquals(sizes.has(".flash.rodata"), false);
   });
 
   it("handles an empty section list", () => {
     const elf = buildElf32([{ name: ".flash.text", size: 42 }]);
-    assertEquals(sectionSizes(elf, []).size, 0);
+    assertEquals(sectionSizes({ data: elf, sections: [] }).size, 0);
   });
 });
 
@@ -175,10 +203,14 @@ describe("parseBudget", () => {
   });
 
   it("rejects non-numeric input", () => {
-    assertThrows(() => parseBudget("not-a-number"));
+    assertThrows(() => {
+      parseBudget("not-a-number");
+    });
   });
 
   it("rejects negative budgets", () => {
-    assertThrows(() => parseBudget("-1000"));
+    assertThrows(() => {
+      parseBudget("-1000");
+    });
   });
 });

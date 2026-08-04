@@ -34,6 +34,14 @@ of these rules wins over "matching surrounding code".
 
 - NEVER use the `function` keyword. Always use arrow functions: `const name = (args) => { ... }`.
 - NEVER use `interface`. Always use `type`: `export type Foo = { ... }`.
+- Every function takes at most ONE parameter (enforced by `max-params`).
+  Prefer a single object argument over positional arguments.
+
+## JavaScript/TypeScript dependencies
+
+- NEVER install anything into `devDependencies`. Every dependency goes into
+  `dependencies` (including tooling such as `eslint`, `prettier`,
+  `typescript`).
 
 ## Layout sanity
 
@@ -42,6 +50,7 @@ of these rules wins over "matching surrounding code".
 - If a `rust-toolchain.toml` selects the `esp` toolchain, use
   `RUSTUP_TOOLCHAIN=stable` for host-side lint/format/test/deny so the toolchain
   does not need to be installed.
+- Format the TypeScript scripts with Prettier (`pnpm format`), NOT `deno fmt`.
 
 ## Verification before done
 
@@ -50,3 +59,5 @@ of these rules wins over "matching surrounding code".
 - `RUSTUP_TOOLCHAIN=stable cargo clippy --lib --target x86_64-unknown-linux-gnu -- -D warnings`
 - `RUSTUP_TOOLCHAIN=stable cargo deny check licenses` (verify toolchain, not
   necessarily run locally)
+- `pnpm lint`
+- `pnpm format:check`

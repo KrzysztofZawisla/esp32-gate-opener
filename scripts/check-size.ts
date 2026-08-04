@@ -44,15 +44,16 @@ const main = (): void => {
     Deno.exit(1);
   }
 
-  const sizes = sectionSizes(data, FLASH_SECTIONS);
+  const sizes = sectionSizes({ data, sections: FLASH_SECTIONS });
   const total = sumBy(
     FLASH_SECTIONS as readonly string[],
-    (section: string) => sizes.get(section) ?? 0,
+    (section: string) => {
+      return sizes.get(section) ?? 0;
+    },
   );
-  const parts = map(
-    FLASH_SECTIONS as readonly string[],
-    (section: string) => `${section}=${sizes.get(section) ?? 0}`,
-  ).join(" ");
+  const parts = map(FLASH_SECTIONS as readonly string[], (section: string) => {
+    return `${section}=${sizes.get(section) ?? 0}`;
+  }).join(" ");
   console.log(`${parts} total=${total} budget=${budget}`);
 
   if (total > budget) {
