@@ -37,7 +37,7 @@
     "@types/lodash": "^4.17.25",
     "@types/node": "^26.1.2",
     "@typescript-eslint/parser": "^8.66.0",
-    "eslint": "^10.8.0",
+    "eslint": "^10.8.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-formatter-unix": "^9.0.1",
     "eslint-plugin-prettier": "^5.5.6",
